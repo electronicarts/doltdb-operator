@@ -1,0 +1,9 @@
+apiVersion: k8s.dolthub.com/v1alpha
+kind: DoltCluster
+metadata:
+  labels:
+    app.kubernetes.io/name: dolt-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: doltcluster-sample
+spec:
+  # TODO(user): Add fields here

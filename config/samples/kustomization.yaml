@@ -1,0 +1,4 @@
+## Append samples of your project ##
+resources:
+- dolt_v1alpha_doltcluster.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples

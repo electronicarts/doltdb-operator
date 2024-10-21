@@ -1,0 +1,23 @@
+# permissions for end users to view doltclusters.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: dolt-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: doltcluster-viewer-role
+rules:
+- apiGroups:
+  - k8s.dolthub.com
+  resources:
+  - doltclusters
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - k8s.dolthub.com
+  resources:
+  - doltclusters/status
+  verbs:
+  - get
