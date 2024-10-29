@@ -1,9 +1,9 @@
 package dolt
 
 import (
+	"reflect"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
 	"gopkg.in/yaml.v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -107,7 +107,7 @@ remotesapi:
 				if err := yaml.Unmarshal([]byte(data[key]), &actualObj); err != nil {
 					t.Fatalf("failed to unmarshal actual data for key %s: %v", key, err)
 				}
-				if !cmp.Equal(expectedObj, actualObj) {
+				if !reflect.DeepEqual(expectedObj, actualObj) {
 					t.Errorf("expected %v, got %v", expectedObj, actualObj)
 				}
 			}
