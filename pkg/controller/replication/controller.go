@@ -1,0 +1,193 @@
+package replication
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/go-logr/logr"
+	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
+	"github.com/electronicarts/doltdb-operator/pkg/builder"
+	"github.com/electronicarts/doltdb-operator/pkg/controller"
+	"github.com/electronicarts/doltdb-operator/pkg/dolt"
+	"github.com/electronicarts/doltdb-operator/pkg/health"
+	"github.com/electronicarts/doltdb-operator/pkg/refresolver"
+	"github.com/electronicarts/doltdb-operator/pkg/statefulset"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+)
+
+type Option func(*ReplicationReconciler)
+
+func WithRefResolver(rr *refresolver.RefResolver) Option {
+	return func(r *ReplicationReconciler) {
+		r.refResolver = rr
+	}
+}
+
+func WithServiceReconciler(sr *controller.ServiceReconciler) Option {
+	return func(rr *ReplicationReconciler) {
+		rr.serviceReconciler = sr
+	}
+}
+
+type ReplicationReconciler struct {
+	client.Client
+	recorder            record.EventRecorder
+	builder             *builder.Builder
+	replConfig          *ReplicationConfig
+	refResolver         *refresolver.RefResolver
+	configMapreconciler *controller.ConfigMapReconciler
+	serviceReconciler   *controller.ServiceReconciler
+}
+
+func NewReplicationReconciler(client client.Client, recorder record.EventRecorder, builder *builder.Builder, replConfig *ReplicationConfig,
+	opts ...Option) (*ReplicationReconciler, error) {
+	r := &ReplicationReconciler{
+		Client:     client,
+		recorder:   recorder,
+		builder:    builder,
+		replConfig: replConfig,
+	}
+	for _, setOpt := range opts {
+		setOpt(r)
+	}
+	if r.refResolver == nil {
+		r.refResolver = refresolver.New(client)
+	}
+	if r.configMapreconciler == nil {
+		r.configMapreconciler = controller.NewConfigMapReconciler(client, builder)
+	}
+	if r.serviceReconciler == nil {
+		r.serviceReconciler = controller.NewServiceReconciler(client)
+	}
+	return r, nil
+}
+
+type reconcileRequest struct {
+	doltdb    *doltv1alpha.DoltCluster
+	key       types.NamespacedName
+	clientSet *ReplicationClientSet
+}
+
+func (r *ReplicationReconciler) Reconcile(ctx context.Context, doltdb *doltv1alpha.DoltCluster) (ctrl.Result, error) {
+	logger := log.FromContext(ctx).WithName("replication")
+	switchoverLogger := log.FromContext(ctx).WithName("switchover")
+
+	if doltdb.IsSwitchingPrimary() {
+		clientSet, err := NewReplicationClientSet(doltdb, r.refResolver)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("error creating DoltDB clientset: %v", err)
+		}
+		defer clientSet.close()
+
+		req := reconcileRequest{
+			doltdb:    doltdb,
+			key:       client.ObjectKeyFromObject(doltdb),
+			clientSet: clientSet,
+		}
+		return ctrl.Result{}, r.reconcileSwitchover(ctx, &req, switchoverLogger)
+	}
+
+	healthy, err := health.IsStatefulSetHealthy(
+		ctx,
+		r.Client,
+		client.ObjectKeyFromObject(doltdb),
+		health.WithDesiredReplicas(doltdb.Spec.Replicas),
+		health.WithPort(dolt.DatabasePort),
+		health.WithEndpointPolicy(health.EndpointPolicyAll),
+	)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("error checking DoltDB health: %v", err)
+	}
+	if !healthy {
+		return ctrl.Result{RequeueAfter: 1 * time.Second}, nil
+	}
+
+	clientSet, err := NewReplicationClientSet(doltdb, r.refResolver)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("error creating DoltDB clientset: %v", err)
+	}
+	defer clientSet.close()
+
+	req := reconcileRequest{
+		doltdb:    doltdb,
+		key:       client.ObjectKeyFromObject(doltdb),
+		clientSet: clientSet,
+	}
+	if result, err := r.reconcileReplication(ctx, &req, logger); !result.IsZero() || err != nil {
+		return result, err
+	}
+	return ctrl.Result{}, r.reconcileSwitchover(ctx, &req, switchoverLogger)
+}
+
+func (r *ReplicationReconciler) reconcileReplication(ctx context.Context, req *reconcileRequest, logger logr.Logger) (ctrl.Result, error) {
+	if req.doltdb.IsSwitchingPrimary() {
+		return ctrl.Result{}, nil
+	}
+	if req.doltdb.Status.CurrentPrimaryPodIndex == nil || req.doltdb.Status.ReplicationEpoch == nil {
+		return ctrl.Result{RequeueAfter: 1 * time.Second}, nil
+	}
+
+	nextReplicationEpoch := *req.doltdb.Status.ReplicationEpoch + 1
+
+	for i := 0; i < int(req.doltdb.Spec.Replicas); i++ {
+		pod := statefulset.PodName(req.doltdb.ObjectMeta, i)
+
+		if req.doltdb.Status.ReplicationStatus == nil {
+			if err := r.reconcileReplicationInPod(ctx, req, logger, i, nextReplicationEpoch); err != nil {
+				return ctrl.Result{}, fmt.Errorf("error configuring replication in Pod '%s': %v", pod, err)
+			}
+		}
+
+		state, ok := req.doltdb.Status.ReplicationStatus[pod]
+		if !ok || state == doltv1alpha.ReplicationStateNotConfigured {
+			if err := r.reconcileReplicationInPod(ctx, req, logger, i, nextReplicationEpoch); err != nil {
+				return ctrl.Result{}, fmt.Errorf("error configuring replication in Pod '%s': %v", pod, err)
+			}
+		}
+	}
+	return ctrl.Result{}, nil
+}
+
+func (r *ReplicationReconciler) reconcileReplicationInPod(ctx context.Context, req *reconcileRequest, logger logr.Logger, index int, nextReplicationEpoch int) error {
+	pod := statefulset.PodName(req.doltdb.ObjectMeta, index)
+	primaryPodIndex := *req.doltdb.Status.CurrentPrimaryPodIndex
+
+	if primaryPodIndex == index {
+		logger.Info("Configuring primary", "pod", pod)
+		client, err := req.clientSet.currentPrimaryClient(ctx)
+		if err != nil {
+			return fmt.Errorf("error getting current primary client: %v", err)
+		}
+		return r.replConfig.ConfigurePrimary(ctx, req.doltdb, client, index, nextReplicationEpoch)
+	}
+
+	logger.Info("Configuring replica", "pod", pod)
+	client, err := req.clientSet.clientForIndex(ctx, index)
+	if err != nil {
+		return fmt.Errorf("error getting replica client: %v", err)
+	}
+
+	return r.replConfig.ConfigureReplica(ctx, req.doltdb, client, index, nextReplicationEpoch)
+}
+
+func (r *ReplicationReconciler) patchStatus(ctx context.Context, doltdb *doltv1alpha.DoltCluster,
+	patcher func(*doltv1alpha.DoltClusterStatus)) error {
+	patch := client.MergeFrom(doltdb.DeepCopy())
+	patcher(&doltdb.Status)
+	return r.Status().Patch(ctx, doltdb, patch)
+}
+
+func (r *ReplicationReconciler) patchReplicationEpochStatus(ctx context.Context, doltdb *doltv1alpha.DoltCluster, nextReplicaitonEpoch int) error {
+	if err := r.patchStatus(ctx, doltdb, func(status *doltv1alpha.DoltClusterStatus) {
+		status.UpdateReplicationEpoch(doltdb, nextReplicaitonEpoch)
+	}); err != nil {
+		return fmt.Errorf("error patching DoltDB replication epoch status: %v", err)
+	}
+
+	return nil
+}
