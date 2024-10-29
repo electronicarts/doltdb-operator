@@ -15,33 +15,36 @@ const (
 )
 
 // doltServicePorts returns the service ports for the Dolt cluster.
-func doltServicePorts(doltcluster *doltv1alpha.DoltCluster) []v1.ServicePort {
+func doltServicePorts() []v1.ServicePort {
 	return []v1.ServicePort{
 		{
 			Port: DoltMySQLPort,
-			Name: doltcluster.Name,
+			Name: DoltMySQLPortName,
+		},
+		{
+			Port: 50051,
+			Name: "grpc",
 		},
 	}
 }
 
 // BuildDoltInternalService creates a headless service for the Dolt cluster.
-func (b *Builder) BuildDoltInternalService(doltcluster *doltv1alpha.DoltCluster) (*v1.Service, error) {
-	objMeta := NewMetadataBuilder(doltcluster.InternalServiceKey()).
-		WithMetadata(doltcluster).
-		WithMetadata(doltcluster).Build()
+func (b *Builder) BuildDoltInternalService(doltdb *doltv1alpha.DoltCluster) (*v1.Service, error) {
+	objMeta := NewMetadataBuilder(doltdb.InternalServiceKey()).
+		WithMetadata(&doltdb.ObjectMeta).Build()
 
-	labels := NewLabelsBuilder().WithDoltSelectorLabels(doltcluster).Build()
+	labels := NewLabelsBuilder().WithDoltSelectorLabels(doltdb).Build()
 
 	svc := &v1.Service{
 		ObjectMeta: objMeta,
 		Spec: v1.ServiceSpec{
-			Ports:     doltServicePorts(doltcluster),
+			Ports:     doltServicePorts(),
 			ClusterIP: "None",
 			Selector:  labels,
 		},
 	}
 
-	if err := controllerutil.SetControllerReference(doltcluster, svc, b.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(doltdb, svc, b.scheme); err != nil {
 		return nil, fmt.Errorf("error setting controller reference to Service: %v", err)
 	}
 
@@ -49,23 +52,22 @@ func (b *Builder) BuildDoltInternalService(doltcluster *doltv1alpha.DoltCluster)
 }
 
 // BuildDoltPrimaryService creates a primary service for the Dolt cluster.
-func (b *Builder) BuildDoltPrimaryService(doltcluster *doltv1alpha.DoltCluster) (*v1.Service, error) {
-	objMeta := NewMetadataBuilder(doltcluster.PrimaryServiceKey()).
-		WithMetadata(doltcluster).
-		WithMetadata(doltcluster).Build()
+func (b *Builder) BuildDoltPrimaryService(doltdb *doltv1alpha.DoltCluster) (*v1.Service, error) {
+	objMeta := NewMetadataBuilder(doltdb.PrimaryServiceKey()).
+		WithMetadata(&doltdb.ObjectMeta).Build()
 
-	labels := NewLabelsBuilder().WithDoltSelectorLabels(doltcluster).WithPodPrimaryRole().Build()
+	labels := NewLabelsBuilder().WithDoltSelectorLabels(doltdb).WithPodPrimaryRole().Build()
 
 	svc := &v1.Service{
 		ObjectMeta: objMeta,
 		Spec: v1.ServiceSpec{
-			Ports:    doltServicePorts(doltcluster),
+			Ports:    doltServicePorts(),
 			Type:     v1.ServiceTypeClusterIP,
 			Selector: labels,
 		},
 	}
 
-	if err := controllerutil.SetControllerReference(doltcluster, svc, b.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(doltdb, svc, b.scheme); err != nil {
 		return nil, fmt.Errorf("error setting controller reference to Service: %v", err)
 	}
 
@@ -73,23 +75,22 @@ func (b *Builder) BuildDoltPrimaryService(doltcluster *doltv1alpha.DoltCluster) 
 }
 
 // BuildDoltReaderService creates a reader service for the Dolt cluster.
-func (b *Builder) BuildDoltReaderService(doltcluster *doltv1alpha.DoltCluster) (*v1.Service, error) {
-	objMeta := NewMetadataBuilder(doltcluster.ReaderServiceKey()).
-		WithMetadata(doltcluster).
-		WithMetadata(doltcluster).Build()
+func (b *Builder) BuildDoltReaderService(doltdb *doltv1alpha.DoltCluster) (*v1.Service, error) {
+	objMeta := NewMetadataBuilder(doltdb.ReaderServiceKey()).
+		WithMetadata(&doltdb.ObjectMeta).Build()
 
-	labels := NewLabelsBuilder().WithDoltSelectorLabels(doltcluster).WithPodStandbyRole().Build()
+	labels := NewLabelsBuilder().WithDoltSelectorLabels(doltdb).WithPodStandbyRole().Build()
 
 	svc := &v1.Service{
 		ObjectMeta: objMeta,
 		Spec: v1.ServiceSpec{
-			Ports:    doltServicePorts(doltcluster),
+			Ports:    doltServicePorts(),
 			Type:     v1.ServiceTypeClusterIP,
 			Selector: labels,
 		},
 	}
 
-	if err := controllerutil.SetControllerReference(doltcluster, svc, b.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(doltdb, svc, b.scheme); err != nil {
 		return nil, fmt.Errorf("error setting controller reference to Service: %v", err)
 	}
 

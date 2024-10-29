@@ -12,7 +12,6 @@ const (
 	versionLabel       = "app.kubernetes.io/version"
 	volumeRole         = "pvc.k8s.dolt/role"
 	podRole            = "k8s.dolt/cluster-role"
-	appDolt            = "dolt"
 )
 
 type LabelsBuilder struct {
@@ -34,6 +33,10 @@ func (b *LabelsBuilder) WithApp(app string) *LabelsBuilder {
 
 // WithApp sets the engine verison label
 func (b *LabelsBuilder) WithVersion(version string) *LabelsBuilder {
+	if version == "" {
+		return b
+	}
+
 	b.labels[versionLabel] = version
 	return b
 }
@@ -59,9 +62,9 @@ func (b *LabelsBuilder) WithLabels(labels map[string]string) *LabelsBuilder {
 }
 
 // WithDoltSelectorLabels sets the app and instance labels for a DoltCluster.
-func (b *LabelsBuilder) WithDoltSelectorLabels(dolt *doltv1alpha.DoltCluster) *LabelsBuilder {
-	return b.WithApp(appDolt).
-		WithInstance(dolt.Name)
+func (b *LabelsBuilder) WithDoltSelectorLabels(doltdb *doltv1alpha.DoltCluster) *LabelsBuilder {
+	return b.WithApp(doltdb.Name).
+		WithInstance(doltdb.Name)
 }
 
 // WithPVCRole sets the PVC role label.

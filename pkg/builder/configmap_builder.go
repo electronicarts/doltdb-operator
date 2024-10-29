@@ -12,23 +12,28 @@ import (
 
 // ConfigMapOpts holds the options for building a ConfigMap.
 type ConfigMapOpts struct {
-	Metadata *doltv1alpha.DoltCluster
+	Metadata *metav1.ObjectMeta
 	Key      types.NamespacedName
 	Data     map[string]string
 }
 
 // BuildConfigMap creates a ConfigMap based on the provided options and sets the owner reference.
 // It returns the created ConfigMap or an error if the operation fails.
-func (b *Builder) BuildConfigMap(options ConfigMapOpts, owner metav1.Object) (*corev1.ConfigMap, error) {
-	objMeta :=
-		NewMetadataBuilder(options.Key).
-			WithMetadata(options.Metadata).
-			Build()
+func (b *Builder) BuildConfigMap(options ConfigMapOpts, doltdb *doltv1alpha.DoltCluster) (*corev1.ConfigMap, error) {
+	labels := NewLabelsBuilder().
+		WithDoltSelectorLabels(doltdb).
+		Build()
+
+	objMeta := NewMetadataBuilder(options.Key).
+		WithMetadata(options.Metadata).
+		WithLabels(labels).
+		Build()
+
 	cm := &corev1.ConfigMap{
 		ObjectMeta: objMeta,
 		Data:       options.Data,
 	}
-	if err := controllerutil.SetControllerReference(owner, cm, b.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(doltdb, cm, b.scheme); err != nil {
 		return nil, fmt.Errorf("error setting controller reference to ConfigMap: %v", err)
 	}
 	return cm, nil

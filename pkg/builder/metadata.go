@@ -1,7 +1,6 @@
 package builder
 
 import (
-	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -16,7 +15,7 @@ func NewMetadataBuilder(key types.NamespacedName) *MetadataBuilder {
 		objMeta: metav1.ObjectMeta{
 			Name:        key.Name,
 			Namespace:   key.Namespace,
-			Labels:      map[string]string{},
+			Labels:      NewLabelsBuilder().Build(),
 			Annotations: map[string]string{},
 		},
 	}
@@ -33,7 +32,7 @@ func (b *MetadataBuilder) WithReleaseLabel(release string) *MetadataBuilder {
 }
 
 // WithMetadata adds labels and annotations from the given DoltCluster metadata.
-func (b *MetadataBuilder) WithMetadata(meta *doltv1alpha.DoltCluster) *MetadataBuilder {
+func (b *MetadataBuilder) WithMetadata(meta *metav1.ObjectMeta) *MetadataBuilder {
 	if meta == nil {
 		return b
 	}
