@@ -21,6 +21,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // DoltClusterSpec defines the desired state of DoltCluster
@@ -29,9 +31,10 @@ type DoltClusterSpec struct {
 	EngineVersion string `json:"engineVersion"`
 
 	// ServiceAccountName defines the service account for the operator
-	ServiceAccountName string `json:"serviceAccountName"`
+	// +optional
+	ServiceAccountName *string `json:"serviceAccountName,omitempty"`
 
-	// +kubebuilder:default:="dolt/dolt"
+	// +kubebuilder:default:="dolthub/dolt"
 
 	// Image specifies the container image name.
 	// +optional
@@ -52,19 +55,21 @@ type DoltClusterSpec struct {
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
+	// PodDisruptionBudget defines the budget for replica availability.
 	// +optional
-	Resource *v1.ResourceRequirements `json:"resource,omitempty"`
+	PodDisruptionBudget *PodDisruptionBudget `json:"podDisruptionBudget,omitempty"`
+
+	// +optional
+	Resources *v1.ResourceRequirements `json:"resource,omitempty"`
 
 	// Volume defines the volume configuration for the Dolt cluster.
-	Volume Volume `json:"volume"`
+	Storage Storage `json:"storage"`
 
 	// +kubebuilder:validation:Minimum=2
-	// +kubebuilder:default:=2
 
 	// Specifies the number of replicas for the Dolt cluster.
-	// Default will be 2 replicas.
 	// +optional
-	Replicas *int32 `json:"replicas,omitempty"`
+	Replicas int32 `json:"replicas"`
 
 	// +kubebuilder:validation:Minimum=10
 	// +kubebuilder:default:=128
@@ -74,14 +79,14 @@ type DoltClusterSpec struct {
 	// +optional
 	MaxConnections *int32 `json:"maxConnections,omitempty"`
 
-	// +kubebuilder:validation:Enum=direct-to-standby;remote-based
+	// +kubebuilder:validation:Enum=DirectStandby;Remote
 	// +kubebuilder:default:="DirectStandby"
 
 	// Specifies the type of the Dolt cluster. Valid values are:
 	//  - DirectStandby (default): Direct-to-standby replication
 	//  - Remote: Remote-based replication
 	// +optional
-	ClusterType ClusterType `json:"clusterType,omitempty"`
+	ReplicationStrategy ClusterType `json:"replicationStrategy,omitempty"`
 
 	// +kubebuilder:default:=false
 
@@ -93,23 +98,49 @@ type DoltClusterSpec struct {
 	// UpdateStrategy defines the update strategy for the StatefulSet object.
 	// +optional
 	UpdateStrategy *appsv1.StatefulSetUpdateStrategy `json:"updateStrategy,omitempty"`
+
+	// Replication configures high availability via replication. This feature is still in alpha, use Galera if you are looking for a more production-ready HA.
+	// +optional
+	Replication *Replication `json:"replication,omitempty"`
+
+	// +optional
+	TopologySpreadConstrains []v1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
+}
+
+// PodDisruptionBudget is the Pod availability bundget for a DoltDB
+type PodDisruptionBudget struct {
+	// MinAvailable defines the number of minimum available Pods.
+	// +optional
+	MinAvailable *intstr.IntOrString `json:"minAvailable,omitempty"`
+	// MaxUnavailable defines the number of maximum unavailable Pods.
+	// +optional
+	MaxUnavailable *intstr.IntOrString `json:"maxUnavailable,omitempty"`
 }
 
 // Volume defines a single volume in the manifest.
-type Volume struct {
-	// +kubebuilder:validation:Maximum=600GiB
+type Storage struct {
+	// +kubebuilder:default:="100Gi"
 
 	// Size specifies the size of the volume for the Dolt Cluster.
-	Size resource.Quantity `json:"size"`
+	Size *resource.Quantity `json:"size,omitempty"`
 
 	// Storage class defines the storage class for the volume,
 	// otherwise k8s cluster default will be used.
-	StorageClass *string `json:"storageClass,omitempty"`
+	// +optional
+	StorageClassName *string `json:"storageClassName,omitempty"`
 
-	// +kubebuilder:validation:Enum=gp2;io1;sc1;st1;standard
+	// +kubebuilder:default:=true
 
-	// VolumeType defines the type of the volume.
-	VolumeType string `json:"type,omitempty"`
+	// ResizeInUseVolumes indicates whether the PVCs can be resized. The 'StorageClassName' used should have 'allowVolumeExpansion' set to 'true' to allow resizing.
+	// +optional
+	ResizeInUseVolumes *bool `json:"resizeInUseVolumes,omitempty"`
+
+	// +kubebuilder:default:=true
+
+	// WaitForVolumeResize indicates whether to wait for the PVCs to be resized before marking the DoltDB object as ready. This will block other operations such as cluster recovery while the resize is in progress.
+	// It defaults to true.
+	// +optional
+	WaitForVolumeResize *bool `json:"waitForVolumeResize,omitempty"`
 }
 
 // ClusterType defines the type of the Dolt cluster. It can be either
@@ -148,12 +179,23 @@ const (
 
 // DoltClusterStatus defines the observed state of DoltCluster
 type DoltClusterStatus struct {
-	// DoltClusterStatus defines the current status of the Dolt cluster.
-	DoltClusterStatus string `json:"doltClusterStatus"`
-	// DoltClusterPrimary defines which replica is the current primary in the Dolt cluster.
-	DoltClusterPrimary string `json:"doltClusterPrimary"`
+	// Conditions for the Dolt cluster object.
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	// CurrentPrimaryPodIndex is the primary Pod index.
+	// +optional
+	CurrentPrimaryPodIndex *int `json:"currentPrimaryPodIndex,omitempty"`
+	// CurrentPrimary is the primary Pod.
+	// +optional
+	CurrentPrimary *string `json:"currentPrimary,omitempty"`
 	// Replicas current number of replicas
-	Replicas int32 `json:"replicas"`
+	Replicas int32 `json:"replicas,omitempty"`
+	// ReplicationStatus is the replication current state for each Pod.
+	// +optional
+	ReplicationStatus ReplicationStatus `json:"replicationStatus,omitempty"`
+	// ReplicationEpoch holds dolt highest epoch value to perform switchovers
+	// +optional
+	ReplicationEpoch *int `json:"replication_epoch,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -175,6 +217,15 @@ type DoltClusterList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []DoltCluster `json:"items"`
+}
+
+// ListItems gets a copy of the Items slice.
+func (m *DoltClusterList) ListItems() []client.Object {
+	items := make([]client.Object, len(m.Items))
+	for i, item := range m.Items {
+		items[i] = item.DeepCopy()
+	}
+	return items
 }
 
 func init() {
