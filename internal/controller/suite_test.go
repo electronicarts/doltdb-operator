@@ -29,6 +29,7 @@ import (
 	doltctrl "github.com/electronicarts/doltdb-operator/pkg/controller"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/config"
@@ -71,7 +72,7 @@ var _ = BeforeSuite(func() {
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing: true,
-		// UseExistingCluster:    ptr.To(true),
+		UseExistingCluster:    ptr.To(true),
 
 		// // The BinaryAssetsDirectory is only required if you want to run the tests directly
 		// // without call the makefile target test. If not informed it will look for the
