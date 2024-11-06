@@ -22,6 +22,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+var (
+	ErrSkipReconciliationPhase = errors.New("skipping reconciliation phase")
+)
+
 func shouldReconcileUpdates(doltdb *doltv1alpha.DoltCluster) bool {
 	if doltdb.IsResizingStorage() || doltdb.IsSwitchingPrimary() {
 		return false
@@ -72,6 +76,10 @@ func (r *DoltDBReconciler) reconcileUpdates(ctx context.Context, doltdb *doltv1a
 		return ctrl.Result{Requeue: true}, nil
 	}
 
+	if result, err := r.waitForConfiguredReplication(doltdb, logger); !result.IsZero() || err != nil {
+		return result, err
+	}
+
 	primaryPod := podsByRole.primary
 	if podpkg.PodUpdated(&primaryPod, stsUpdateRevision) {
 		logger.V(1).Info("Primary Pod up to date", "pod", primaryPod.Name)
@@ -94,6 +102,20 @@ func (r *DoltDBReconciler) waitForReadyStatus(ctx context.Context, doltdb *doltv
 		logger.V(1).Info("Waiting for all Pods to be ready to proceed with the update. Requeuing...")
 		return ctrl.Result{RequeueAfter: 1 * time.Second}, nil
 	}
+
+	return ctrl.Result{}, nil
+}
+
+func (r *DoltDBReconciler) waitForConfiguredReplication(doltdb *doltv1alpha.DoltCluster, logger logr.Logger) (ctrl.Result, error) {
+	if !doltdb.Replication().Enabled {
+		return ctrl.Result{}, nil
+	}
+
+	if !doltdb.IsReplicationConfigured() {
+		logger.V(1).Info("Waiting for Pods to have configured replication.")
+		return ctrl.Result{}, ErrSkipReconciliationPhase
+	}
+	logger.V(1).Info("Pods have configured replication.")
 
 	return ctrl.Result{}, nil
 }
@@ -180,6 +202,7 @@ func (r *DoltDBReconciler) getPodsByRole(ctx context.Context, doltdb *doltv1alph
 	var replicas []corev1.Pod
 	var primary *corev1.Pod
 	for _, pod := range list.Items {
+		pod := pod
 		if pod.Name == currentPrimary {
 			primary = &pod
 		} else {

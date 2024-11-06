@@ -1,155 +1,349 @@
-/*
-Copyright 2024.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package controller
 
 import (
-	"context"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
+	"github.com/electronicarts/doltdb-operator/pkg/builder"
 	"github.com/electronicarts/doltdb-operator/pkg/dolt"
+	"github.com/electronicarts/doltdb-operator/pkg/dolt/sql"
+	"github.com/electronicarts/doltdb-operator/pkg/statefulset"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
+	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = Describe("DoltCluster Controller", func() {
-	Context("When reconciling a resource", func() {
-		ctx := context.Background()
-
-		BeforeEach(func() {
-			By("creating the custom resource for the Kind DoltCluster")
-			testCreateInitialData(ctx)
-		})
-
-		AfterEach(func() {
-			By("Cleanup the instance DoltCluster")
-			testCleanupInitialData(ctx)
-		})
-
-		It("should successfully reconcile the resource", func() {
+var _ = Describe("DoltDB Controller", func() {
+	Context("Spec", func() {
+		It("should reconcile", func() {
 			var testDoltDB doltv1alpha.DoltCluster
-
-			By("Reconciling the created resource")
-			_, err := doltDBReconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: testDoltKey,
-			})
-			Expect(err).NotTo(HaveOccurred())
 
 			By("Getting DoltDB")
 			Expect(k8sClient.Get(ctx, testDoltKey, &testDoltDB)).To(Succeed())
 
-			By("Expecting to create a ServiceAccount")
-			var svcAcc corev1.ServiceAccount
-			svcAccKey := testDoltDB.ServiceAccountKey()
-			Expect(k8sClient.Get(ctx, svcAccKey, &svcAcc)).To(Succeed())
-			Expect(svcAcc.ObjectMeta.Labels).NotTo(BeNil())
-			Expect(svcAcc.ObjectMeta.Labels).To(HaveKeyWithValue("k8s.dolthub.com/test", "test"))
-			Expect(svcAcc.ObjectMeta.Labels).To(HaveKeyWithValue("app.kubernetes.io/name", "dolt"))
-			Expect(svcAcc.ObjectMeta.Annotations).NotTo(BeNil())
-			Expect(svcAcc.ObjectMeta.Annotations).To(HaveKeyWithValue("k8s.dolthub.com/test", "test"))
+			By("Expecting to create a ConfigMap eventually")
+			Eventually(func(g Gomega) bool {
+				var cm corev1.ConfigMap
+				cmKey := types.NamespacedName{
+					Name:      testDoltDB.DefaultConfigMapKey().Name,
+					Namespace: testDoltDB.DefaultConfigMapKey().Namespace,
+				}
+				if err := k8sClient.Get(ctx, cmKey, &cm); err != nil {
+					return false
+				}
+				g.Expect(cm.ObjectMeta.Labels).NotTo(BeNil())
+				g.Expect(cm.ObjectMeta.Labels).To(HaveKeyWithValue("k8s.dolthub.com/test", "test"))
+				g.Expect(cm.ObjectMeta.Labels).To(HaveKeyWithValue("app.kubernetes.io/name", "dolt"))
+				g.Expect(cm.ObjectMeta.Annotations).NotTo(BeNil())
+				g.Expect(cm.ObjectMeta.Annotations).To(HaveKeyWithValue("k8s.dolthub.com/test", "test"))
 
-			By("Expecting to create a ConfigMap")
-			var cm corev1.ConfigMap
-			cmKey := types.NamespacedName{
-				Name:      testDoltDB.DefaultConfigMapKey().Name,
-				Namespace: testDoltDB.DefaultConfigMapKey().Namespace,
+				data, err := dolt.GenerateConfigMapData(&testDoltDB)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(cm.Data).To(Equal(data))
+
+				return true
+			}, testTimeout, testInterval).Should(BeTrue())
+
+			By("Expecting to create a StatefulSet eventually")
+			Eventually(func(g Gomega) bool {
+				var sts appsv1.StatefulSet
+				if err := k8sClient.Get(ctx, testDoltKey, &sts); err != nil {
+					return false
+				}
+				g.Expect(sts.ObjectMeta.Labels).To(HaveKeyWithValue("k8s.dolthub.com/test", "test"))
+				g.Expect(sts.ObjectMeta.Labels).To(HaveKeyWithValue("app.kubernetes.io/name", "dolt"))
+				g.Expect(sts.ObjectMeta.Annotations).NotTo(BeNil())
+				g.Expect(sts.ObjectMeta.Annotations).To(HaveKeyWithValue("k8s.dolthub.com/test", "test"))
+				g.Expect(sts.ObjectMeta.Annotations).To(HaveKeyWithValue("k8s.dolthub.com/doltdb", testDoltDB.Name))
+				g.Expect(sts.ObjectMeta.Annotations).To(HaveKeyWithValue("k8s.dolthub.com/replication", "true"))
+				return true
+			}, testTimeout, testInterval).Should(BeTrue())
+
+			By("Expecting to create a Headless Service eventually")
+			Eventually(func(g Gomega) bool {
+				var headlessService corev1.Service
+				if err := k8sClient.Get(ctx, testDoltDB.InternalServiceKey(), &headlessService); err != nil {
+					return false
+				}
+
+				g.Expect(headlessService.ObjectMeta.Labels).NotTo(BeNil())
+				g.Expect(headlessService.ObjectMeta.Labels).To(HaveKeyWithValue("k8s.dolthub.com/test", "test"))
+				g.Expect(headlessService.ObjectMeta.Annotations).NotTo(BeNil())
+				g.Expect(headlessService.ObjectMeta.Annotations).To(HaveKeyWithValue("k8s.dolthub.com/test", "test"))
+				g.Expect(headlessService.Spec.ClusterIP).To(Equal("None"))
+				g.Expect(headlessService.Spec.Selector).To(HaveKeyWithValue("app.kubernetes.io/name", testDoltDB.Name))
+
+				return true
+			}, testTimeout, testInterval).Should(BeTrue())
+
+			By("Expecting to create a Service for Primary instance eventually")
+			Eventually(func(g Gomega) bool {
+				var primaryService corev1.Service
+				if err := k8sClient.Get(ctx, testDoltDB.PrimaryServiceKey(), &primaryService); err != nil {
+					return false
+				}
+				g.Expect(primaryService.ObjectMeta.Labels).NotTo(BeNil())
+				g.Expect(primaryService.ObjectMeta.Labels).To(HaveKeyWithValue("k8s.dolthub.com/test", "test"))
+				g.Expect(primaryService.ObjectMeta.Annotations).NotTo(BeNil())
+				g.Expect(primaryService.ObjectMeta.Annotations).To(HaveKeyWithValue("k8s.dolthub.com/test", "test"))
+				g.Expect(primaryService.Spec.Selector).To(HaveKeyWithValue(dolt.RoleLabel, dolt.PrimaryRoleValue.String()))
+				g.Expect(primaryService.Spec.Selector).To(HaveKeyWithValue("app.kubernetes.io/name", testDoltDB.Name))
+
+				return true
+			}, testTimeout, testInterval).Should(BeTrue())
+
+			By("Expecting to create a service for Reader instances eventually")
+			Eventually(func(g Gomega) bool {
+				var readerService corev1.Service
+				if err := k8sClient.Get(ctx, testDoltDB.ReaderServiceKey(), &readerService); err != nil {
+					return false
+				}
+
+				g.Expect(readerService.ObjectMeta.Labels).NotTo(BeNil())
+				g.Expect(readerService.ObjectMeta.Labels).To(HaveKeyWithValue("k8s.dolthub.com/test", "test"))
+				g.Expect(readerService.ObjectMeta.Annotations).NotTo(BeNil())
+				g.Expect(readerService.ObjectMeta.Annotations).To(HaveKeyWithValue("k8s.dolthub.com/test", "test"))
+				g.Expect(readerService.Spec.Selector).To(HaveKeyWithValue(dolt.RoleLabel, dolt.StandbyRoleValue.String()))
+				g.Expect(readerService.Spec.Selector).To(HaveKeyWithValue("app.kubernetes.io/name", testDoltDB.Name))
+
+				return true
+			}, testTimeout, testInterval).Should(BeTrue())
+
+			By("Expecting to create Pods eventually")
+			Eventually(func(g Gomega) bool {
+				var pod corev1.PodList
+				listOpts := &client.ListOptions{
+					LabelSelector: klabels.SelectorFromSet(
+						builder.NewLabelsBuilder().
+							WithDoltSelectorLabels(&testDoltDB).
+							Build(),
+					),
+					Namespace: testDoltDB.GetNamespace(),
+				}
+				if err := k8sClient.List(ctx, &pod, listOpts); err != nil {
+					return false
+				}
+				if len(pod.Items) != int(testDoltDB.Spec.Replicas) {
+					return false
+				}
+
+				for _, pod := range pod.Items {
+					g.Expect(pod.ObjectMeta.Labels).NotTo(BeNil())
+					g.Expect(pod.ObjectMeta.Labels).To(HaveKeyWithValue("k8s.dolthub.com/test", "test"))
+					g.Expect(pod.ObjectMeta.Annotations).NotTo(BeNil())
+					g.Expect(pod.ObjectMeta.Annotations).To(HaveKeyWithValue("k8s.dolthub.com/test", "test"))
+					g.Expect(pod.ObjectMeta.Labels).To(HaveKeyWithValue("app.kubernetes.io/name", "dolt"))
+
+					v, ok := pod.Labels[dolt.RoleLabel]
+					if !ok {
+						return false
+					}
+					if v == string(doltv1alpha.ReplicationStateNotConfigured) {
+						return false
+					}
+
+					if pod.Name == statefulset.PodName(testDoltDB.ObjectMeta, 0) {
+						g.Expect(pod.ObjectMeta.Labels).To(HaveKeyWithValue(dolt.RoleLabel, dolt.PrimaryRoleValue.String()))
+					} else {
+						g.Expect(pod.ObjectMeta.Labels).To(HaveKeyWithValue(dolt.RoleLabel, dolt.StandbyRoleValue.String()))
+					}
+				}
+
+				return true
+			}, testTimeout, testInterval).Should(BeTrue())
+
+			By("Expecting to create a PodDisruptionBudget eventually")
+			Eventually(func(g Gomega) bool {
+				var pdb policyv1.PodDisruptionBudget
+				if err := k8sClient.Get(ctx, testDoltDB.PodDisruptionBudgetKey(), &pdb); err != nil {
+					return false
+				}
+
+				g.Expect(pdb.ObjectMeta.Labels).NotTo(BeNil())
+				g.Expect(pdb.ObjectMeta.Labels).To(HaveKeyWithValue("k8s.dolthub.com/test", "test"))
+				g.Expect(pdb.ObjectMeta.Annotations).NotTo(BeNil())
+				g.Expect(pdb.ObjectMeta.Annotations).To(HaveKeyWithValue("k8s.dolthub.com/test", "test"))
+
+				return true
+			}, testTimeout, testInterval).Should(BeTrue())
+
+			By("Expecting to create a PVCs eventually")
+			Eventually(func(g Gomega) bool {
+				pvcList := corev1.PersistentVolumeClaimList{}
+				listOpts := client.ListOptions{
+					LabelSelector: klabels.SelectorFromSet(
+						builder.NewLabelsBuilder().
+							WithDoltSelectorLabels(&testDoltDB).
+							Build(),
+					),
+					Namespace: testDoltDB.GetNamespace(),
+				}
+				if err := k8sClient.List(ctx, &pvcList, &listOpts); err != nil {
+					return false
+				}
+
+				if len(pvcList.Items) != int(testDoltDB.Spec.Replicas) {
+					return false
+				}
+
+				for _, pvc := range pvcList.Items {
+					g.Expect(pvc.ObjectMeta.Labels).NotTo(BeNil())
+					g.Expect(pvc.ObjectMeta.Labels).To(HaveKeyWithValue("k8s.dolthub.com/test", "test"))
+					g.Expect(pvc.ObjectMeta.Annotations).NotTo(BeNil())
+					g.Expect(pvc.ObjectMeta.Annotations).To(HaveKeyWithValue("k8s.dolthub.com/test", "test"))
+					g.Expect(pvc.ObjectMeta.Labels).To(HaveKeyWithValue("app.kubernetes.io/name", testDoltDB.Name))
+					g.Expect(pvc.Spec.AccessModes).Should(ContainElement(corev1.ReadWriteOnce))
+					storageSize := resource.NewQuantity(1, "Gi")
+					if testDoltDB.Spec.Storage.Size != nil {
+						storageSize = testDoltDB.Spec.Storage.Size
+					}
+					g.Expect(pvc.Spec.Resources.Requests).To(HaveKeyWithValue(corev1.ResourceStorage, *storageSize))
+				}
+
+				return true
+			}, testTimeout, testInterval).Should(BeTrue())
+
+			By("Expecting SQL Connection to primary to be ready eventually")
+			Eventually(func(g Gomega) bool {
+				password, err := refResolver.SecretKeyRef(ctx, testDoltDB.RootPasswordSecretKeyRef(), testDoltDB.Namespace)
+				g.Expect(err).NotTo(HaveOccurred())
+
+				opts := []sql.Opt{
+					sql.WithUsername("root"),
+					sql.WithPassword(password),
+					sql.WitHost(func() string {
+						return statefulset.ServiceFQDNWithService(
+							testDoltDB.ObjectMeta,
+							testDoltDB.PrimaryServiceKey().Name,
+						)
+					}()),
+					sql.WithPort(dolt.DatabasePort),
+				}
+				if _, err = sql.NewClient(opts...); err != nil {
+					return false
+				}
+
+				return true
+			}, testTimeout, testInterval).Should(BeTrue())
+
+			By("Expecting SQL Connection to replicas to be ready eventually")
+			Eventually(func(g Gomega) bool {
+				password, err := refResolver.SecretKeyRef(ctx, testDoltDB.RootPasswordSecretKeyRef(), testDoltDB.Namespace)
+				g.Expect(err).NotTo(HaveOccurred())
+
+				opts := []sql.Opt{
+					sql.WithUsername("root"),
+					sql.WithPassword(password),
+					sql.WitHost(func() string {
+						return statefulset.ServiceFQDNWithService(
+							testDoltDB.ObjectMeta,
+							testDoltDB.ReaderServiceKey().Name,
+						)
+					}()),
+					sql.WithPort(dolt.DatabasePort),
+				}
+				if _, err = sql.NewClient(opts...); err != nil {
+					return false
+				}
+				return true
+			}, testTimeout, testInterval).Should(BeTrue())
+		})
+	})
+
+	Context("Replication", func() {
+		It("should fail and switch over primary", func() {
+			var testDoltDB doltv1alpha.DoltCluster
+
+			By("Getting DoltDB")
+			Expect(k8sClient.Get(ctx, testDoltKey, &testDoltDB)).To(Succeed())
+
+			By("Expecting DoltDB to be ready eventually")
+			Eventually(func() bool {
+				if err := k8sClient.Get(ctx, testDoltKey, &testDoltDB); err != nil {
+					return false
+				}
+				return testDoltDB.IsReady()
+			}, testHighTimeout, testInterval).Should(BeTrue())
+
+			By("Expecting DoltDB primary to be set")
+			Eventually(func() bool {
+				return testDoltDB.Status.CurrentPrimary != nil
+			}, testTimeout, testInterval).Should(BeTrue())
+
+			currentPrimary := *testDoltDB.Status.CurrentPrimary
+			By("Tearing down primary Pod consistently")
+			Consistently(func() bool {
+				primaryPodKey := types.NamespacedName{
+					Name:      currentPrimary,
+					Namespace: testDoltDB.Namespace,
+				}
+				var primaryPod corev1.Pod
+				if err := k8sClient.Get(ctx, primaryPodKey, &primaryPod); err != nil {
+					return apierrors.IsNotFound(err)
+				}
+				return k8sClient.Delete(ctx, &primaryPod) == nil
+			}, 30*time.Second, testInterval).Should(BeTrue())
+
+			By("Expecting DoltDB to be ready eventually")
+			Eventually(func() bool {
+				if err := k8sClient.Get(ctx, testDoltKey, &testDoltDB); err != nil {
+					return false
+				}
+				return testDoltDB.IsReady()
+			}, testHighTimeout, testInterval).Should(BeTrue())
+
+			By("Expecting DoltDB to eventually change primary")
+			Eventually(func() bool {
+				if err := k8sClient.Get(ctx, testDoltKey, &testDoltDB); err != nil {
+					return false
+				}
+				if !testDoltDB.IsReady() || testDoltDB.Status.CurrentPrimary == nil {
+					return false
+				}
+				return *testDoltDB.Status.CurrentPrimary != currentPrimary
+			}, testHighTimeout, testInterval).Should(BeTrue())
+
+			By("Expecting DoltDB to eventually update primary")
+			var podIndex int
+			for i := 0; i < int(testDoltDB.Spec.Replicas); i++ {
+				if i != *testDoltDB.Status.CurrentPrimaryPodIndex {
+					podIndex = i
+					break
+				}
 			}
-			Expect(k8sClient.Get(ctx, cmKey, &cm)).To(Succeed())
-			Expect(svcAcc.ObjectMeta.Labels).NotTo(BeNil())
-			Expect(svcAcc.ObjectMeta.Labels).To(HaveKeyWithValue("k8s.dolthub.com/test", "test"))
-			Expect(svcAcc.ObjectMeta.Labels).To(HaveKeyWithValue("app.kubernetes.io/name", "dolt"))
-			Expect(svcAcc.ObjectMeta.Annotations).NotTo(BeNil())
-			Expect(svcAcc.ObjectMeta.Annotations).To(HaveKeyWithValue("k8s.dolthub.com/test", "test"))
+			Eventually(func(g Gomega) bool {
+				g.Expect(k8sClient.Get(ctx, testDoltKey, &testDoltDB)).To(Succeed())
+				testDoltDB.Replication().Primary.PodIndex = &podIndex
+				g.Expect(k8sClient.Update(ctx, &testDoltDB)).To(Succeed())
+				return true
+			}, testTimeout, testInterval).Should(BeTrue())
 
-			data, err := dolt.GenerateConfigMapData(&testDoltDB)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(cm.Data).To(Equal(data))
+			By("Expecting DoltDB to eventually change primary")
+			Eventually(func() bool {
+				if err := k8sClient.Get(ctx, testDoltKey, &testDoltDB); err != nil {
+					return false
+				}
+				if !testDoltDB.IsReady() || testDoltDB.Status.CurrentPrimaryPodIndex == nil {
+					return false
+				}
+				return *testDoltDB.Status.CurrentPrimaryPodIndex == podIndex
+			}, testTimeout, testInterval).Should(BeTrue())
 
-			By("Expecting to create a StatefulSet")
-			var sts appsv1.StatefulSet
-			Expect(k8sClient.Get(ctx, testDoltKey, &sts)).To(Succeed())
-			Expect(sts.ObjectMeta.Labels).To(HaveKeyWithValue("k8s.dolthub.com/test", "test"))
-			Expect(sts.ObjectMeta.Labels).To(HaveKeyWithValue("app.kubernetes.io/name", "dolt"))
-			Expect(sts.ObjectMeta.Annotations).NotTo(BeNil())
-			Expect(sts.ObjectMeta.Annotations).To(HaveKeyWithValue("k8s.dolthub.com/test", "test"))
-			Expect(sts.ObjectMeta.Annotations).To(HaveKeyWithValue("k8s.dolthub.com/doltdb", "true"))
-			Expect(sts.ObjectMeta.Annotations).To(HaveKeyWithValue("k8s.dolthub.com/replication", "true"))
-
-			// By("Expecting to create Pod")
-			// podKey := types.NamespacedName{
-			// 	Name:      statefulset.PodName(testDoltDB.ObjectMeta, 0),
-			// 	Namespace: testDoltDB.Namespace,
-			// }
-			// var pod corev1.Pod
-			// Expect(k8sClient.Get(ctx, podKey, &pod)).To(Succeed())
-			// Expect(pod.ObjectMeta.Labels).NotTo(BeNil())
-			// Expect(pod.ObjectMeta.Labels).To(HaveKeyWithValue("k8s.dolthub.com/test", "test"))
-			// Expect(pod.ObjectMeta.Annotations).NotTo(BeNil())
-			// Expect(pod.ObjectMeta.Annotations).To(HaveKeyWithValue("k8s.dolthub.com/test", "test"))
-			// Expect(pod.ObjectMeta.Labels).To(HaveKeyWithValue("app.kubernetes.io/name", "dolt"))
-
-			By("Expecting to create a Headless Service")
-			var headlessService corev1.Service
-			Expect(k8sClient.Get(ctx, testDoltDB.InternalServiceKey(), &headlessService)).To(Succeed())
-			Expect(headlessService.ObjectMeta.Labels).NotTo(BeNil())
-			Expect(headlessService.ObjectMeta.Labels).To(HaveKeyWithValue("k8s.dolthub.com/test", "test"))
-			Expect(headlessService.ObjectMeta.Annotations).NotTo(BeNil())
-			Expect(headlessService.ObjectMeta.Annotations).To(HaveKeyWithValue("k8s.dolthub.com/test", "test"))
-			Expect(headlessService.ObjectMeta.Labels).To(HaveKeyWithValue("app.kubernetes.io/name", "dolt"))
-
-			By("Expecting to create a Service for Primary instance")
-			var primaryService corev1.Service
-			Expect(k8sClient.Get(ctx, testDoltDB.PrimaryServiceKey(), &primaryService)).To(Succeed())
-			Expect(primaryService.ObjectMeta.Labels).NotTo(BeNil())
-			Expect(primaryService.ObjectMeta.Labels).To(HaveKeyWithValue("k8s.dolthub.com/test", "test"))
-			Expect(primaryService.ObjectMeta.Annotations).NotTo(BeNil())
-			Expect(primaryService.ObjectMeta.Annotations).To(HaveKeyWithValue("k8s.dolthub.com/test", "test"))
-			Expect(primaryService.ObjectMeta.Labels).To(HaveKeyWithValue("app.kubernetes.io/name", "dolt"))
-
-			By("Expecting to create a service for Reader instances")
-			var readerService corev1.Service
-			Expect(k8sClient.Get(ctx, testDoltDB.ReaderServiceKey(), &readerService)).To(Succeed())
-			Expect(readerService.ObjectMeta.Labels).NotTo(BeNil())
-			Expect(readerService.ObjectMeta.Labels).To(HaveKeyWithValue("k8s.dolthub.com/test", "test"))
-			Expect(readerService.ObjectMeta.Annotations).NotTo(BeNil())
-			Expect(readerService.ObjectMeta.Annotations).To(HaveKeyWithValue("k8s.dolthub.com/test", "test"))
-			Expect(readerService.ObjectMeta.Labels).To(HaveKeyWithValue("app.kubernetes.io/name", "dolt"))
-
-			By("Expecting to create a PodDisruptionBudget for High Availability")
-			var pdb policyv1.PodDisruptionBudget
-			Expect(k8sClient.Get(ctx, testDoltDB.PodDisruptionBudgetKey(), &pdb)).To(Succeed())
-			Expect(readerService.ObjectMeta.Labels).NotTo(BeNil())
-			Expect(readerService.ObjectMeta.Labels).To(HaveKeyWithValue("k8s.dolthub.com/test", "test"))
-			Expect(readerService.ObjectMeta.Annotations).NotTo(BeNil())
-			Expect(readerService.ObjectMeta.Annotations).To(HaveKeyWithValue("k8s.dolthub.com/test", "test"))
-			Expect(readerService.ObjectMeta.Labels).To(HaveKeyWithValue("app.kubernetes.io/name", "dolt"))
-
-			// By("Expecting to create a PVC for High Availability")
-			// var pvc corev1.PersistentVolumeClaim
-			// Expect(k8sClient.Get(ctx, testDoltDB.PodDisruptionBudgetKey(), &pdb)).To(Succeed())
-			// Expect(readerService.ObjectMeta.Labels).NotTo(BeNil())
-			// Expect(readerService.ObjectMeta.Labels).To(HaveKeyWithValue("k8s.dolthub.com/test", "test"))
-			// Expect(readerService.ObjectMeta.Annotations).NotTo(BeNil())
-			// Expect(readerService.ObjectMeta.Annotations).To(HaveKeyWithValue("k8s.dolthub.com/test", "test"))
-			// Expect(readerService.ObjectMeta.Labels).To(HaveKeyWithValue("app.kubernetes.io/name", "dolt"))
+			By("Expecting primary Service to eventually change primary")
+			Eventually(func(g Gomega) bool {
+				var svc corev1.Service
+				if err := k8sClient.Get(ctx, testDoltDB.PrimaryServiceKey(), &svc); err != nil {
+					return false
+				}
+				return svc.Spec.Selector["statefulset.kubernetes.io/pod-name"] == statefulset.PodName(testDoltDB.ObjectMeta, podIndex)
+			}, testTimeout, testInterval).Should(BeTrue())
 		})
 	})
 })

@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -140,7 +141,7 @@ func (r *DoltDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	for _, p := range phases {
 		result, err := p.Reconcile(ctx, &doltCluster)
 		if err != nil {
-			if apierrors.IsNotFound(err) {
+			if shouldSkipPhase(err) {
 				continue
 			}
 
@@ -188,6 +189,16 @@ func (r *DoltDBReconciler) SetupWithManager(mgr ctrl.Manager, opts k8sctrl.Optio
 	return builder.Complete(r)
 }
 
+func shouldSkipPhase(err error) bool {
+	if apierrors.IsNotFound(err) {
+		return true
+	}
+	if errors.Is(err, ErrSkipReconciliationPhase) {
+		return true
+	}
+	return false
+}
+
 func (r *DoltDBReconciler) reconcileConfigMap(ctx context.Context, doltdb *doltv1alpha.DoltCluster) (ctrl.Result, error) {
 	defaultConfigMapKeyRef := doltdb.DefaultConfigMapKey()
 
@@ -210,46 +221,52 @@ func (r *DoltDBReconciler) reconcileConfigMap(ctx context.Context, doltdb *doltv
 }
 
 func (r *DoltDBReconciler) reconcileService(ctx context.Context, doltdb *doltv1alpha.DoltCluster) (ctrl.Result, error) {
-	if err := r.reconcileInternalService(ctx, doltdb); err != nil {
+	if result, err := r.reconcileInternalService(ctx, doltdb); !result.IsZero() || err != nil {
 		return ctrl.Result{}, fmt.Errorf("error reconciling internal Service: %v", err)
 	}
 
-	// if doltdb.Replication().Enabled {
-	if err := r.reconcilePrimarylService(ctx, doltdb); err != nil {
-		return ctrl.Result{}, fmt.Errorf("error reconciling primary Service: %v", err)
+	if doltdb.Replication().Enabled {
+		if result, err := r.reconcilePrimaryService(ctx, doltdb); !result.IsZero() || err != nil {
+			return ctrl.Result{}, fmt.Errorf("error reconciling primary Service: %v", err)
+		}
+		if result, err := r.reconcileReaderService(ctx, doltdb); !result.IsZero() || err != nil {
+			return ctrl.Result{}, fmt.Errorf("error reconciling reader Service: %v", err)
+		}
 	}
-	if err := r.reconcileReaderService(ctx, doltdb); err != nil {
-		return ctrl.Result{}, fmt.Errorf("error reconciling reader Service: %v", err)
-	}
-	// }
+
 	return ctrl.Result{}, nil
 }
 
-func (r *DoltDBReconciler) reconcileInternalService(ctx context.Context, doltdb *doltv1alpha.DoltCluster) error {
+func (r *DoltDBReconciler) reconcileInternalService(ctx context.Context, doltdb *doltv1alpha.DoltCluster) (ctrl.Result, error) {
 	internalHeadlessSvc, err := r.Builder.BuildDoltInternalService(doltdb)
 	if err != nil {
-		return fmt.Errorf("error building internal Service: %v", err)
+		return ctrl.Result{}, fmt.Errorf("error building internal Service: %v", err)
 	}
 
-	return r.ServiceReconciler.Reconcile(ctx, internalHeadlessSvc)
+	return ctrl.Result{}, r.ServiceReconciler.Reconcile(ctx, internalHeadlessSvc)
 }
 
-func (r *DoltDBReconciler) reconcilePrimarylService(ctx context.Context, doltdb *doltv1alpha.DoltCluster) error {
+func (r *DoltDBReconciler) reconcilePrimaryService(ctx context.Context, doltdb *doltv1alpha.DoltCluster) (ctrl.Result, error) {
+	if doltdb.Status.CurrentPrimaryPodIndex == nil {
+		log.FromContext(ctx).V(1).Info("'status.currentPrimaryPodIndex' must be set")
+		return ctrl.Result{RequeueAfter: 1 * time.Second}, nil
+	}
+
 	primarySvc, err := r.Builder.BuildDoltPrimaryService(doltdb)
 	if err != nil {
-		return fmt.Errorf("error building primary Service: %v", err)
+		return ctrl.Result{}, fmt.Errorf("error building primary Service: %v", err)
 	}
 
-	return r.ServiceReconciler.Reconcile(ctx, primarySvc)
+	return ctrl.Result{}, r.ServiceReconciler.Reconcile(ctx, primarySvc)
 }
 
-func (r *DoltDBReconciler) reconcileReaderService(ctx context.Context, doltdb *doltv1alpha.DoltCluster) error {
+func (r *DoltDBReconciler) reconcileReaderService(ctx context.Context, doltdb *doltv1alpha.DoltCluster) (ctrl.Result, error) {
 	primarySvc, err := r.Builder.BuildDoltReaderService(doltdb)
 	if err != nil {
-		return fmt.Errorf("error building reader Service: %v", err)
+		return ctrl.Result{}, fmt.Errorf("error building reader Service: %v", err)
 	}
 
-	return r.ServiceReconciler.Reconcile(ctx, primarySvc)
+	return ctrl.Result{}, r.ServiceReconciler.Reconcile(ctx, primarySvc)
 }
 
 func (r *DoltDBReconciler) reconcileStatefulSet(ctx context.Context, doltdb *doltv1alpha.DoltCluster) (ctrl.Result, error) {
@@ -291,6 +308,11 @@ func (r *DoltDBReconciler) reconcilePodLabels(ctx context.Context, doltdb *doltv
 	for _, pod := range podList.Items {
 		podLabels := builder.NewLabelsBuilder().WithLabels(pod.Labels)
 
+		if doltdb.Status.CurrentPrimaryPodIndex == nil {
+			log.FromContext(ctx).V(1).Info("'status.currentPrimaryPodIndex' must be set")
+			return ctrl.Result{RequeueAfter: 1 * time.Second}, nil
+		}
+
 		if pod.Status.PodIP == "" || pod.Spec.NodeName == "" {
 			continue
 		}
@@ -299,6 +321,8 @@ func (r *DoltDBReconciler) reconcilePodLabels(ctx context.Context, doltdb *doltv
 			return ctrl.Result{}, fmt.Errorf("error getting Pod '%s' index: %v", pod.Name, err)
 		}
 
+		p := client.MergeFrom(pod.DeepCopy())
+
 		podLabels.WithStatefulSetPod(doltdb, *podIndex)
 
 		if *podIndex == *doltdb.Status.CurrentPrimaryPodIndex {
@@ -306,8 +330,6 @@ func (r *DoltDBReconciler) reconcilePodLabels(ctx context.Context, doltdb *doltv
 		} else {
 			pod.Labels = podLabels.WithPodStandbyRole().Build()
 		}
-
-		p := client.MergeFrom(pod.DeepCopy())
 
 		if doltpod.PodReady(&pod) {
 			if err := r.Patch(ctx, &pod, p); err != nil {

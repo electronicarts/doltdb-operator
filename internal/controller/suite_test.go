@@ -18,24 +18,21 @@ package controller
 
 import (
 	"context"
-	"fmt"
-	"path/filepath"
-	"runtime"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.uber.org/zap/zapcore"
 
 	doltctrl "github.com/electronicarts/doltdb-operator/pkg/controller"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/config"
-	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	log "sigs.k8s.io/controller-runtime/pkg/log"
 
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
 	"github.com/electronicarts/doltdb-operator/pkg/builder"
@@ -43,53 +40,45 @@ import (
 	"github.com/electronicarts/doltdb-operator/pkg/controller/replication"
 	"github.com/electronicarts/doltdb-operator/pkg/dolt"
 	"github.com/electronicarts/doltdb-operator/pkg/refresolver"
+	ctrlcontroller "sigs.k8s.io/controller-runtime/pkg/controller"
 	// +kubebuilder:scaffold:imports
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
-var cfg *rest.Config
-var k8sClient client.Client
-var testEnv *envtest.Environment
-var ctx context.Context
-var cancel context.CancelFunc
-var doltDBReconciler *DoltDBReconciler
-var podReconciler *PodController
+var (
+	k8sClient   client.Client
+	ctx         context.Context
+	cancel      context.CancelFunc
+	refResolver *refresolver.RefResolver
+)
 
 func TestControllers(t *testing.T) {
 	RegisterFailHandler(Fail)
 
-	RunSpecs(t, "Controller Suite")
+	RunSpecs(t, "DoltDB Controller Suite")
 }
 
 var _ = BeforeSuite(func() {
-	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+	testLogger := zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true), zap.Level(zapcore.DebugLevel))
+
+	log.SetLogger(testLogger)
 
 	ctx, cancel = context.WithCancel(context.TODO())
 
-	By("bootstrapping test environment")
-	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases")},
-		ErrorIfCRDPathMissing: true,
-		UseExistingCluster:    ptr.To(true),
+	var err error
 
-		// // The BinaryAssetsDirectory is only required if you want to run the tests directly
-		// // without call the makefile target test. If not informed it will look for the
-		// // default path defined in controller-runtime which is /usr/local/kubebuilder/.
-		// // Note that you must have the required binaries setup under the bin directory to perform
-		// // the tests directly. When we run make test it will be setup and used automatically.
-		BinaryAssetsDirectory: filepath.Join("..", "..", "bin", "k8s",
-			fmt.Sprintf("1.31.0-%s-%s", runtime.GOOS, runtime.GOARCH)),
+	cfg := &rest.Config{
+		Host: "https://kubernetes.default.svc",
+		TLSClientConfig: rest.TLSClientConfig{
+			CAFile: "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt",
+		},
+		BearerTokenFile: "/var/run/secrets/kubernetes.io/serviceaccount/token",
 	}
 
-	var err error
-	// cfg is defined in this file globally.
-	cfg, err = testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
-	DeferCleanup(testEnv.Stop)
-
 	err = doltv1alpha.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -107,20 +96,22 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).ToNot(HaveOccurred())
 
+	client := k8sManager.GetClient()
+	scheme := k8sManager.GetScheme()
 	replRecorder := k8sManager.GetEventRecorderFor("replication")
 
-	builder := builder.NewBuilder(k8sClient.Scheme())
-	refResolver := refresolver.New(k8sClient)
+	builder := builder.NewBuilder(scheme)
+	refResolver = refresolver.New(k8sClient)
 	conditionReady := conditions.NewReady()
 
 	// controllers
-	rbacReconciler := doltctrl.NewRBACReconiler(k8sClient, builder)
-	configMapReconciler := doltctrl.NewConfigMapReconciler(k8sClient, builder)
-	serviceReconciler := doltctrl.NewServiceReconciler(k8sClient)
-	statefulSetReconciler := doltctrl.NewStatefulSetReconciler(k8sClient)
-	replConfig := replication.NewReplicationConfig(k8sClient, builder)
+	rbacReconciler := doltctrl.NewRBACReconiler(client, builder)
+	configMapReconciler := doltctrl.NewConfigMapReconciler(client, builder)
+	serviceReconciler := doltctrl.NewServiceReconciler(client)
+	statefulSetReconciler := doltctrl.NewStatefulSetReconciler(client)
+	replConfig := replication.NewReplicationConfig(client, builder)
 	replicationReconciler, err := replication.NewReplicationReconciler(
-		k8sClient,
+		client,
 		replRecorder,
 		builder,
 		replConfig,
@@ -129,12 +120,12 @@ var _ = BeforeSuite(func() {
 	)
 	Expect(err).NotTo(HaveOccurred())
 
-	podReconciler = NewPodController(
+	podReconciler := NewPodController(
 		"pod-replication",
-		k8sClient,
+		client,
 		refResolver,
 		replication.NewPodReadinessController(
-			k8sClient,
+			client,
 			replRecorder,
 			builder,
 			refResolver,
@@ -146,7 +137,7 @@ var _ = BeforeSuite(func() {
 		},
 	)
 
-	doltDBReconciler = (&DoltDBReconciler{
+	err = (&DoltDBReconciler{
 		Client:                k8sClient,
 		Scheme:                k8sClient.Scheme(),
 		Builder:               builder,
@@ -157,12 +148,24 @@ var _ = BeforeSuite(func() {
 		ServiceReconciler:     serviceReconciler,
 		StatefulSetReconciler: statefulSetReconciler,
 		ReplicationReconciler: replicationReconciler,
-	})
+	}).SetupWithManager(k8sManager, ctrlcontroller.Options{MaxConcurrentReconciles: 10})
+	Expect(err).ToNot(HaveOccurred())
+
+	err = podReconciler.SetupWithManager(k8sManager)
+	Expect(err).ToNot(HaveOccurred())
+
+	go func() {
+		defer GinkgoRecover()
+		err = k8sManager.Start(ctx)
+		Expect(err).ToNot(HaveOccurred())
+	}()
+
+	By("Creating initial test data")
+	testCreateInitialData(ctx)
 })
 
 var _ = AfterSuite(func() {
-	By("tearing down the test environment")
+	By("Cleanup the instance DoltCluster")
+	testCleanupInitialData(ctx)
 	cancel()
-	err := testEnv.Stop()
-	Expect(err).NotTo(HaveOccurred())
 })

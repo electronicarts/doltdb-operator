@@ -46,7 +46,11 @@ func (b *Builder) BuildDoltPrimaryService(doltdb *doltv1alpha.DoltCluster) (*v1.
 	objMeta := NewMetadataBuilder(doltdb.PrimaryServiceKey()).
 		WithMetadata(&doltdb.ObjectMeta).Build()
 
-	labels := NewLabelsBuilder().WithDoltSelectorLabels(doltdb).WithPodPrimaryRole().Build()
+	labels := NewLabelsBuilder().
+		WithDoltSelectorLabels(doltdb).
+		WithPodPrimaryRole().
+		WithStatefulSetPod(doltdb, *doltdb.Status.CurrentPrimaryPodIndex).
+		Build()
 
 	svc := &v1.Service{
 		ObjectMeta: objMeta,

@@ -1,11 +1,13 @@
 package builder
 
 import (
+	"fmt"
 	"strconv"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
 	"github.com/electronicarts/doltdb-operator/pkg/dolt"
@@ -48,6 +50,10 @@ func (b *Builder) BuildDoltStatefulSet(key types.NamespacedName, doltdb *doltv1a
 			Template:             doltPodTemplate(objMeta, doltdb),
 			VolumeClaimTemplates: doltVolumeClaimTemplates(objMeta, doltdb),
 		},
+	}
+
+	if err := controllerutil.SetControllerReference(doltdb, statefulSet, b.scheme); err != nil {
+		return nil, fmt.Errorf("error setting controller reference to StatefulSet: %v", err)
 	}
 
 	return statefulSet, nil

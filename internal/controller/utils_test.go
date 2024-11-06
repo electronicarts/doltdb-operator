@@ -2,7 +2,6 @@ package controller
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -21,14 +20,13 @@ import (
 )
 
 var (
-	testVeryHighTimeout = 20 * time.Minute
-	testHighTimeout     = 10 * time.Minute
-	testTimeout         = 5 * time.Minute
-	testInterval        = 1 * time.Second
+	testHighTimeout = 2 * time.Minute
+	testTimeout     = 1 * time.Minute
+	testInterval    = 1 * time.Second
 
 	testDoltKey = types.NamespacedName{
 		Name:      "dolt",
-		Namespace: fmt.Sprintf("test-namespace-%d", time.Now().Unix()),
+		Namespace: "default",
 	}
 
 	testDoltCredentialsKey = types.NamespacedName{
@@ -38,13 +36,6 @@ var (
 )
 
 func testCreateInitialData(ctx context.Context) {
-	namespace := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: testDoltKey.Namespace,
-		},
-	}
-	Expect(k8sClient.Create(ctx, namespace)).To(Succeed())
-
 	secret := v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      testDoltCredentialsKey.Name,
@@ -56,6 +47,14 @@ func testCreateInitialData(ctx context.Context) {
 			"admin-password": "12345",
 		},
 	}
+
+	err := k8sClient.Delete(ctx, &secret)
+	if err != nil {
+		if err != client.IgnoreNotFound(err) {
+			log.FromContext(ctx).Error(err, "error cleaning test environment doltdb secret")
+		}
+	}
+
 	Expect(k8sClient.Create(ctx, &secret)).To(Succeed())
 
 	doltdb := doltv1alpha.DoltCluster{
@@ -71,7 +70,7 @@ func testCreateInitialData(ctx context.Context) {
 		},
 		Spec: doltv1alpha.DoltClusterSpec{
 			Image:               "dolthub/dolt",
-			EngineVersion:       "1.43.5",
+			EngineVersion:       "1.7.6",
 			Replicas:            3,
 			ReplicationStrategy: doltv1alpha.DirectStandby,
 			Storage: doltv1alpha.Storage{
@@ -98,16 +97,21 @@ func testCreateInitialData(ctx context.Context) {
 		},
 	}
 
+	if err := k8sClient.Delete(ctx, &doltdb); err != nil {
+		if err != client.IgnoreNotFound(err) {
+			log.FromContext(ctx).Error(err, "error cleaning test environment doltdb")
+		}
+	}
 	Expect(k8sClient.Create(ctx, &doltdb)).To(Succeed())
-	// expectReady(ctx, k8sClient, testDoltKey)
+	expectReady(ctx, k8sClient, testDoltKey)
 }
 
 func testCleanupInitialData(ctx context.Context) {
 	deleteDoltDB(ctx, testDoltKey)
-	deleteNamespace(ctx, types.NamespacedName{
-		Name:      testDoltKey.Namespace,
-		Namespace: testDoltKey.Namespace,
-	})
+	// deleteNamespace(ctx, types.NamespacedName{
+	// 	Name:      testDoltKey.Namespace,
+	// 	Namespace: testDoltKey.Namespace,
+	// })
 }
 
 func expectReady(ctx context.Context, k8sClient client.Client, key types.NamespacedName) {
@@ -121,14 +125,16 @@ func expectFn(ctx context.Context, k8sClient client.Client, key types.Namespaced
 	var doltdb doltv1alpha.DoltCluster
 	Eventually(func(g Gomega) bool {
 		g.Expect(k8sClient.Get(ctx, key, &doltdb)).To(Succeed())
-
-		log.FromContext(ctx).Info("Checking DoltDB status", "status", doltdb)
-
 		return fn(&doltdb)
 	}, testHighTimeout, testInterval).Should(BeTrue())
 }
 
 func deleteDoltDB(ctx context.Context, key types.NamespacedName) {
+	By("Deleting Secret")
+	var doltSecret v1.Secret
+	Expect(k8sClient.Get(ctx, testDoltCredentialsKey, &doltSecret)).To(Succeed())
+	Expect(k8sClient.Delete(ctx, &doltSecret)).To(Succeed())
+
 	var doltdb doltv1alpha.DoltCluster
 	By("Deleting DoltDB")
 	Expect(k8sClient.Get(ctx, key, &doltdb)).To(Succeed())
@@ -144,6 +150,7 @@ func deleteDoltDB(ctx context.Context, key types.NamespacedName) {
 		client.InNamespace(doltdb.Namespace),
 	}
 	Expect(k8sClient.DeleteAllOf(ctx, &corev1.PersistentVolumeClaim{}, opts...)).To(Succeed())
+
 }
 
 func deleteNamespace(ctx context.Context, key types.NamespacedName) {

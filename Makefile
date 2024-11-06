@@ -59,14 +59,14 @@ fmt: ## Run go fmt against code.
 vet: ## Run go vet against code.
 	go vet ./...
 
-.PHONY: test
-test: manifests generate fmt vet envtest ## Run tests.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test $$(go list ./... | grep -v /e2e) -race -coverprofile cover.out  --timeout 1m
+.PHONY: test-int
+test-int: ## Run tests.
+	go test ./internal/controller/...--timeout 5m 
 
-# Utilize Kind or modify the e2e tests to load the image locally, enabling compatibility with other vendors.
-.PHONY: test-e2e  # Run the e2e tests against a Kind k8s instance that is spun up.
-test-e2e:
-	go test ./test/e2e/ -v -ginkgo.v
+.PHONY: test
+test: ## Run tests.
+	go test $$(go list ./...| grep -v ./internal/controller/) -race -coverprofile cover.out
+
 
 .PHONY: lint
 lint: golangci-lint ## Run golangci-lint linter
@@ -127,7 +127,7 @@ ifndef ignore-not-found
 endif
 
 .PHONY: install
-install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
+install: kubectl manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/crd | $(KUBECTL) apply -f -
 
 .PHONY: uninstall
@@ -151,7 +151,7 @@ $(LOCALBIN):
 	mkdir -p $(LOCALBIN)
 
 ## Tool Binaries
-KUBECTL ?= kubectl
+KUBECTL ?= $(LOCALBIN)/kubectl
 KUSTOMIZE ?= $(LOCALBIN)/kustomize
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 ENVTEST ?= $(LOCALBIN)/setup-envtest
@@ -183,6 +183,22 @@ $(ENVTEST): $(LOCALBIN)
 golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
 $(GOLANGCI_LINT): $(LOCALBIN)
 	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint,$(GOLANGCI_LINT_VERSION))
+
+.PHONY: kubectl
+kubectl: ## Download kubectl locally if necessary.
+ifeq (,$(wildcard $(KUBECTL)))
+ifeq (,$(shell which kubectl 2>/dev/null))
+	@{ \
+	set -e ;\
+	mkdir -p $(dir $(KUBECTL)) ;\
+	OS=$(shell go env GOOS) && ARCH=$(shell go env GOARCH) && \
+	curl -sSLo $(KUBECTL) https://dl.k8s.io/release/v1.31.0/bin/linux/$${ARCH}/kubectl ;\
+	chmod +x $(KUBECTL) ;\
+	}
+else
+KUBECTL = $(shell which kubectl)
+endif
+endif
 
 # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
 # $1 - target path with name of binary

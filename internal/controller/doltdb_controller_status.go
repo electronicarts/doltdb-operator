@@ -160,12 +160,16 @@ func (r *DoltDBReconciler) getReplicationStatusAndEpoch(ctx context.Context,
 		if dbstate.Role == dolt.PrimaryRoleValue.String() {
 			// If there's more than one primary, we need to reconcile, marking pod replication status as broken
 			if doltdb.Status.CurrentPrimary != nil && *doltdb.Status.CurrentPrimary != podName {
+				logger.V(1).Info("more than 1 primary", "pod", podName, "state", dbstate, "currentPrimary", *doltdb.Status.CurrentPrimary)
 				continue
 			}
 			state = doltv1alpha.ReplicationStatePrimary
 		} else if dbstate.Role == dolt.StandbyRoleValue.String() {
 			state = doltv1alpha.ReplicationStateStandby
 		}
+
+		logger.V(0).Info("setting replication status", "pod", podName, "state", state)
+
 		replicationStatus[podName] = state
 	}
 

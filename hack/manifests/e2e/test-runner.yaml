@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: dolt-operator-tests-pod
+spec:
+  serviceAccountName: dolt-operator-tests-sa
+  automountServiceAccountToken: true
+  containers:
+    - name: dolt-operator-tests
+      image: localhost:5000/dolt-operator-tests
+      resources:
+        limits:
+          memory: 2Gi
+        requests:
+          memory: 128Mi
+          cpu: 100m
