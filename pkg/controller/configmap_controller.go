@@ -30,7 +30,7 @@ func NewConfigMapReconciler(client client.Client, builder *builder.Builder) *Con
 // ReconcileRequest contains the information needed to reconcile a ConfigMap.
 type ConfigMapReconcileRequest struct {
 	Metadata *metav1.ObjectMeta
-	Owner    *doltv1alpha.DoltCluster
+	Owner    *doltv1alpha.DoltDB
 	Key      types.NamespacedName
 	Data     map[string]string
 }

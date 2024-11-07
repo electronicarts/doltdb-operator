@@ -23,7 +23,7 @@ import (
 var _ = Describe("DoltDB Controller", func() {
 	Context("Spec", func() {
 		It("should reconcile", func() {
-			var testDoltDB doltv1alpha.DoltCluster
+			var testDoltDB doltv1alpha.DoltDB
 
 			By("Getting DoltDB")
 			Expect(k8sClient.Get(ctx, testDoltKey, &testDoltDB)).To(Succeed())
@@ -259,7 +259,7 @@ var _ = Describe("DoltDB Controller", func() {
 
 	Context("Replication", func() {
 		It("should fail and switch over primary", func() {
-			var testDoltDB doltv1alpha.DoltCluster
+			var testDoltDB doltv1alpha.DoltDB
 
 			By("Getting DoltDB")
 			Expect(k8sClient.Get(ctx, testDoltKey, &testDoltDB)).To(Succeed())

@@ -24,29 +24,29 @@ func TestHealthyDoltDBReplica(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		doltdb        *doltv1alpha.DoltCluster
+		doltdb        *doltv1alpha.DoltDB
 		pods          []corev1.Pod
 		expectedIndex *int
 		expectedErr   error
 	}{
 		{
 			name: "no current primary pod index",
-			doltdb: &doltv1alpha.DoltCluster{
-				Status: doltv1alpha.DoltClusterStatus{},
+			doltdb: &doltv1alpha.DoltDB{
+				Status: doltv1alpha.DoltDBStatus{},
 			},
 			expectedErr: errors.New("'status.currentPrimaryPodIndex' must be set"),
 		},
 		{
 			name: "no healthy replicas",
-			doltdb: &doltv1alpha.DoltCluster{
+			doltdb: &doltv1alpha.DoltDB{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "doltdb",
 					Namespace: "default",
 				},
-				Spec: doltv1alpha.DoltClusterSpec{
+				Spec: doltv1alpha.DoltDBSpec{
 					Replicas: 2,
 				},
-				Status: doltv1alpha.DoltClusterStatus{
+				Status: doltv1alpha.DoltDBStatus{
 					CurrentPrimaryPodIndex: ptr.To(0),
 				},
 			},
@@ -68,15 +68,15 @@ func TestHealthyDoltDBReplica(t *testing.T) {
 		},
 		{
 			name: "healthy replica found",
-			doltdb: &doltv1alpha.DoltCluster{
+			doltdb: &doltv1alpha.DoltDB{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "dolt",
 					Namespace: "default",
 				},
-				Spec: doltv1alpha.DoltClusterSpec{
+				Spec: doltv1alpha.DoltDBSpec{
 					Replicas: 2,
 				},
-				Status: doltv1alpha.DoltClusterStatus{
+				Status: doltv1alpha.DoltDBStatus{
 					CurrentPrimaryPodIndex: ptr.To(0),
 				},
 			},

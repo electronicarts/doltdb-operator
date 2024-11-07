@@ -39,14 +39,14 @@ func NewPodReadinessController(client client.Client, recorder record.EventRecord
 	}
 }
 
-// shouldReconcile checks if the DoltCluster should be reconciled
-func shouldReconcile(doltdb *doltv1alpha.DoltCluster) bool {
+// shouldReconcile checks if the DoltDB should be reconciled
+func shouldReconcile(doltdb *doltv1alpha.DoltDB) bool {
 	primaryRepl := ptr.Deref(doltdb.Replication().Primary, doltv1alpha.PrimaryReplication{})
 	return doltdb.Replication().Enabled && *primaryRepl.AutomaticFailover && doltdb.IsReplicationConfigured()
 }
 
 // ReconcilePodNotReady reconciles a Pod that is not in a Ready state
-func (r *PodReadinessController) ReconcilePodNotReady(ctx context.Context, pod corev1.Pod, doltdb *doltv1alpha.DoltCluster) error {
+func (r *PodReadinessController) ReconcilePodNotReady(ctx context.Context, pod corev1.Pod, doltdb *doltv1alpha.DoltDB) error {
 	if !shouldReconcile(doltdb) {
 		return nil
 	}
@@ -84,12 +84,12 @@ func (r *PodReadinessController) ReconcilePodNotReady(ctx context.Context, pod c
 	}
 
 	var errBundle *multierror.Error
-	err = r.patch(ctx, doltdb, func(doltdb *doltv1alpha.DoltCluster) {
+	err = r.patch(ctx, doltdb, func(doltdb *doltv1alpha.DoltDB) {
 		doltdb.Replication().Primary.PodIndex = toIndex
 	})
 	errBundle = multierror.Append(errBundle, err)
 
-	err = r.patchStatus(ctx, doltdb, func(status *doltv1alpha.DoltClusterStatus) {
+	err = r.patchStatus(ctx, doltdb, func(status *doltv1alpha.DoltDBStatus) {
 		conditions.SetPrimarySwitching(status, doltdb)
 	})
 	errBundle = multierror.Append(errBundle, err)
@@ -105,26 +105,26 @@ func (r *PodReadinessController) ReconcilePodNotReady(ctx context.Context, pod c
 	return nil
 }
 
-// patch applies a patch to the DoltCluster
-func (r *PodReadinessController) patch(ctx context.Context, doltdb *doltv1alpha.DoltCluster,
-	patcher func(*doltv1alpha.DoltCluster)) error {
+// patch applies a patch to the DoltDB
+func (r *PodReadinessController) patch(ctx context.Context, doltdb *doltv1alpha.DoltDB,
+	patcher func(*doltv1alpha.DoltDB)) error {
 	patch := client.MergeFrom(doltdb.DeepCopy())
 	patcher(doltdb)
 
 	if err := r.Patch(ctx, doltdb, patch); err != nil {
-		return fmt.Errorf("error patching DoltCluster: %v", err)
+		return fmt.Errorf("error patching DoltDB: %v", err)
 	}
 	return nil
 }
 
-// patchStatus applies a status patch to the DoltCluster
-func (r *PodReadinessController) patchStatus(ctx context.Context, doltdb *doltv1alpha.DoltCluster,
-	patcher func(*doltv1alpha.DoltClusterStatus)) error {
+// patchStatus applies a status patch to the DoltDB
+func (r *PodReadinessController) patchStatus(ctx context.Context, doltdb *doltv1alpha.DoltDB,
+	patcher func(*doltv1alpha.DoltDBStatus)) error {
 	patch := client.MergeFrom(doltdb.DeepCopy())
 	patcher(&doltdb.Status)
 
 	if err := r.Client.Status().Patch(ctx, doltdb, patch); err != nil {
-		return fmt.Errorf("error patching DoltCluster status: %v", err)
+		return fmt.Errorf("error patching DoltDB status: %v", err)
 	}
 	return nil
 }

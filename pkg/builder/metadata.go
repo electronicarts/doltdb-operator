@@ -31,7 +31,7 @@ func (b *MetadataBuilder) WithReleaseLabel(release string) *MetadataBuilder {
 	})
 }
 
-// WithMetadata adds labels and annotations from the given DoltCluster metadata.
+// WithMetadata adds labels and annotations from the given DoltDB metadata.
 func (b *MetadataBuilder) WithMetadata(meta *metav1.ObjectMeta) *MetadataBuilder {
 	if meta == nil {
 		return b

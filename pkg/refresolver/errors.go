@@ -3,5 +3,5 @@ package refresolver
 import "errors"
 
 var (
-	ErrDoltClusterAnnotationNotFound = errors.New("DoltCluster annotation not found")
+	ErrDoltClusterAnnotationNotFound = errors.New("DoltDB annotation not found")
 )

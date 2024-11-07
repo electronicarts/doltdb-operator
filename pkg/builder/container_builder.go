@@ -48,7 +48,7 @@ func doltContainerCommand() []string {
 	}
 }
 
-func doltEnv(doltcluster *doltv1alpha.DoltCluster) []corev1.EnvVar {
+func doltEnv(doltdb *doltv1alpha.DoltDB) []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{
 			Name:  "DOLT_ROOT_PATH",
@@ -65,19 +65,19 @@ func doltEnv(doltcluster *doltv1alpha.DoltCluster) []corev1.EnvVar {
 		{
 			Name: "DOLT_USERNAME",
 			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: ptr.To(doltcluster.RootUserSecretKeyRef().ToKubernetesType()),
+				SecretKeyRef: ptr.To(doltdb.RootUserSecretKeyRef().ToKubernetesType()),
 			},
 		},
 		{
 			Name: "DOLT_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: ptr.To(doltcluster.RootPasswordSecretKeyRef().ToKubernetesType()),
+				SecretKeyRef: ptr.To(doltdb.RootPasswordSecretKeyRef().ToKubernetesType()),
 			},
 		},
 	}
 }
 
-func doltContainers(doltdb *doltv1alpha.DoltCluster) []corev1.Container {
+func doltContainers(doltdb *doltv1alpha.DoltDB) []corev1.Container {
 	containers := []corev1.Container{
 		{
 			Name:            DoltContainerName,
@@ -100,7 +100,7 @@ func doltContainers(doltdb *doltv1alpha.DoltCluster) []corev1.Container {
 	return containers
 }
 
-func doltInitContainers(doltdb *doltv1alpha.DoltCluster) []corev1.Container {
+func doltInitContainers(doltdb *doltv1alpha.DoltDB) []corev1.Container {
 	containers := []corev1.Container{
 		{
 			Name:            DoltInitContainerName,
@@ -126,7 +126,7 @@ func doltInitContainers(doltdb *doltv1alpha.DoltCluster) []corev1.Container {
 	return containers
 }
 
-func doltResourceRequirements(doltdb *doltv1alpha.DoltCluster) corev1.ResourceRequirements {
+func doltResourceRequirements(doltdb *doltv1alpha.DoltDB) corev1.ResourceRequirements {
 	if doltdb.Spec.Resources != nil {
 		return *doltdb.Spec.Resources
 	}

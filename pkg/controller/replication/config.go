@@ -32,7 +32,7 @@ func NewReplicationConfig(client client.Client, builder *builder.Builder) *Repli
 
 func (r *ReplicationConfig) ConfigurePrimary(
 	ctx context.Context,
-	doltdb *doltv1alpha.DoltCluster,
+	doltdb *doltv1alpha.DoltDB,
 	client *sqlClient.Client,
 	podIndex int,
 	nextReplicationEpoch int,
@@ -54,7 +54,7 @@ func (r *ReplicationConfig) ConfigurePrimary(
 
 func (r *ReplicationConfig) ConfigureReplica(
 	ctx context.Context,
-	doltdb *doltv1alpha.DoltCluster,
+	doltdb *doltv1alpha.DoltDB,
 	client *sqlClient.Client,
 	podIndex int,
 	nextReplicationEpoch int,
@@ -76,7 +76,7 @@ func (r *ReplicationConfig) ConfigureReplica(
 
 func (r *ReplicationConfig) GetNextPrimary(
 	ctx context.Context,
-	doltdb *doltv1alpha.DoltCluster,
+	doltdb *doltv1alpha.DoltDB,
 	client *sqlClient.Client,
 	epoch int,
 ) (int, error) {

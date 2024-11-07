@@ -25,8 +25,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// DoltClusterSpec defines the desired state of DoltCluster
-type DoltClusterSpec struct {
+// DoltDBSpec defines the desired state of DoltDB
+type DoltDBSpec struct {
 	// EngineVersion defines the version of the Dolt DB server to use.
 	EngineVersion string `json:"engineVersion"`
 
@@ -131,13 +131,15 @@ type Storage struct {
 
 	// +kubebuilder:default:=true
 
-	// ResizeInUseVolumes indicates whether the PVCs can be resized. The 'StorageClassName' used should have 'allowVolumeExpansion' set to 'true' to allow resizing.
+	// ResizeInUseVolumes indicates whether the PVCs can be resized.
+	// The 'StorageClassName' used should have 'allowVolumeExpansion' set to 'true' to allow resizing.
 	// +optional
 	ResizeInUseVolumes *bool `json:"resizeInUseVolumes,omitempty"`
 
 	// +kubebuilder:default:=true
 
-	// WaitForVolumeResize indicates whether to wait for the PVCs to be resized before marking the DoltDB object as ready. This will block other operations such as cluster recovery while the resize is in progress.
+	// WaitForVolumeResize indicates whether to wait for the PVCs to be resized before marking the DoltDB object as ready.
+	// This will block other operations such as cluster recovery while the resize is in progress.
 	// It defaults to true.
 	// +optional
 	WaitForVolumeResize *bool `json:"waitForVolumeResize,omitempty"`
@@ -177,8 +179,8 @@ const (
 	NeverUpdateType UpdateType = "Never"
 )
 
-// DoltClusterStatus defines the observed state of DoltCluster
-type DoltClusterStatus struct {
+// DoltDBStatus defines the observed state of DoltDB
+type DoltDBStatus struct {
 	// Conditions for the Dolt cluster object.
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
@@ -201,26 +203,26 @@ type DoltClusterStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 
-// DoltCluster is the Schema for the doltclusters API
-type DoltCluster struct {
+// DoltDB is the Schema for the doltdbs API
+type DoltDB struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   DoltClusterSpec   `json:"spec,omitempty"`
-	Status DoltClusterStatus `json:"status,omitempty"`
+	Spec   DoltDBSpec   `json:"spec,omitempty"`
+	Status DoltDBStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// DoltClusterList contains a list of DoltCluster
-type DoltClusterList struct {
+// DoltDBList contains a list of DoltDB
+type DoltDBList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []DoltCluster `json:"items"`
+	Items           []DoltDB `json:"items"`
 }
 
 // ListItems gets a copy of the Items slice.
-func (m *DoltClusterList) ListItems() []client.Object {
+func (m *DoltDBList) ListItems() []client.Object {
 	items := make([]client.Object, len(m.Items))
 	for i, item := range m.Items {
 		items[i] = item.DeepCopy()
@@ -229,5 +231,5 @@ func (m *DoltClusterList) ListItems() []client.Object {
 }
 
 func init() {
-	SchemeBuilder.Register(&DoltCluster{}, &DoltClusterList{})
+	SchemeBuilder.Register(&DoltDB{}, &DoltDBList{})
 }

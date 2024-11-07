@@ -10,14 +10,14 @@ import (
 )
 
 type ClientSet struct {
-	DoltDB        *doltv1alpha1.DoltCluster
+	DoltDB        *doltv1alpha1.DoltDB
 	refResolver   *refresolver.RefResolver
 	clientByIndex map[int]*Client
 	mux           *sync.Mutex
 }
 
 // NewClientSet creates a new ClientSet instance.
-func NewClientSet(doltdb *doltv1alpha1.DoltCluster, refResolver *refresolver.RefResolver) *ClientSet {
+func NewClientSet(doltdb *doltv1alpha1.DoltDB, refResolver *refresolver.RefResolver) *ClientSet {
 	return &ClientSet{
 		DoltDB:        doltdb,
 		refResolver:   refResolver,

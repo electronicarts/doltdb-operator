@@ -17,12 +17,12 @@ func TestDoltDBPodMeta(t *testing.T) {
 	}
 	tests := []struct {
 		name     string
-		doltdb   *doltv1alpha.DoltCluster
+		doltdb   *doltv1alpha.DoltDB
 		wantMeta *metav1.ObjectMeta
 	}{
 		{
 			name: "empty",
-			doltdb: &doltv1alpha.DoltCluster{
+			doltdb: &doltv1alpha.DoltDB{
 				ObjectMeta: objMeta,
 			},
 			wantMeta: &metav1.ObjectMeta{
@@ -34,9 +34,9 @@ func TestDoltDBPodMeta(t *testing.T) {
 		},
 		{
 			name: "HA",
-			doltdb: &doltv1alpha.DoltCluster{
+			doltdb: &doltv1alpha.DoltDB{
 				ObjectMeta: objMeta,
-				Spec: doltv1alpha.DoltClusterSpec{
+				Spec: doltv1alpha.DoltDBSpec{
 					EngineVersion: "1.43.5",
 					Replication: &doltv1alpha.Replication{
 						Enabled: true,
@@ -67,21 +67,21 @@ func TestDoltDBPodBuilderResources(t *testing.T) {
 	}
 	tests := []struct {
 		name          string
-		doltdb        *doltv1alpha.DoltCluster
+		doltdb        *doltv1alpha.DoltDB
 		wantResources corev1.ResourceRequirements
 	}{
 		{
 			name: "no resources",
-			doltdb: &doltv1alpha.DoltCluster{
+			doltdb: &doltv1alpha.DoltDB{
 				ObjectMeta: objMeta,
 			},
-			wantResources: doltResourceRequirements(&doltv1alpha.DoltCluster{}),
+			wantResources: doltResourceRequirements(&doltv1alpha.DoltDB{}),
 		},
 		{
 			name: "doltdb resources",
-			doltdb: &doltv1alpha.DoltCluster{
+			doltdb: &doltv1alpha.DoltDB{
 				ObjectMeta: objMeta,
-				Spec: doltv1alpha.DoltClusterSpec{
+				Spec: doltv1alpha.DoltDBSpec{
 					Resources: &v1.ResourceRequirements{
 						Requests: corev1.ResourceList{
 							"cpu": resource.MustParse("300m"),

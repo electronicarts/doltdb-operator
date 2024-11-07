@@ -26,4 +26,4 @@ COPY config/ config/
 COPY internal/controller/ internal/controller/
 COPY pkg/ pkg/
 
-ENTRYPOINT ["make", "test"]
+ENTRYPOINT ["make", "test-int"]

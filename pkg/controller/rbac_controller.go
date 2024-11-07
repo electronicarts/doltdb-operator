@@ -29,7 +29,7 @@ func NewRBACReconiler(client client.Client, builder *builder.Builder) *RBACRecon
 }
 
 // ReconcileServiceAccount ensures that a ServiceAccount exists for the given DoltDB.
-func (r *RBACReconciler) ReconcileServiceAccount(ctx context.Context, key types.NamespacedName, doltdb *doltv1alpha.DoltCluster) (*corev1.ServiceAccount, error) {
+func (r *RBACReconciler) ReconcileServiceAccount(ctx context.Context, key types.NamespacedName, doltdb *doltv1alpha.DoltDB) (*corev1.ServiceAccount, error) {
 	var existingSA corev1.ServiceAccount
 	err := r.Get(ctx, key, &existingSA)
 	if err == nil {
@@ -49,8 +49,8 @@ func (r *RBACReconciler) ReconcileServiceAccount(ctx context.Context, key types.
 	return sa, nil
 }
 
-// ReconcileDoltRBAC ensures that all necessary RBAC resources exist for the given DoltCluster.
-func (r *RBACReconciler) ReconcileDoltRBAC(ctx context.Context, doltdb *doltv1alpha.DoltCluster) error {
+// ReconcileDoltRBAC ensures that all necessary RBAC resources exist for the given DoltDB.
+func (r *RBACReconciler) ReconcileDoltRBAC(ctx context.Context, doltdb *doltv1alpha.DoltDB) error {
 	key := doltdb.ServiceAccountKey()
 	sa, err := r.ReconcileServiceAccount(ctx, key, doltdb)
 	if err != nil {
@@ -87,8 +87,8 @@ func (r *RBACReconciler) ReconcileDoltRBAC(ctx context.Context, doltdb *doltv1al
 	return nil
 }
 
-// reconcileRole ensures that a Role exists for the given DoltCluster.
-func (r *RBACReconciler) reconcileRole(ctx context.Context, key types.NamespacedName, doltdb *doltv1alpha.DoltCluster) (*rbacv1.Role, error) {
+// reconcileRole ensures that a Role exists for the given DoltDB.
+func (r *RBACReconciler) reconcileRole(ctx context.Context, key types.NamespacedName, doltdb *doltv1alpha.DoltDB) (*rbacv1.Role, error) {
 	var existingRole rbacv1.Role
 	err := r.Get(ctx, key, &existingRole)
 	if err == nil {
@@ -104,7 +104,7 @@ func (r *RBACReconciler) reconcileRole(ctx context.Context, key types.Namespaced
 				doltv1alpha.GroupVersion.Group,
 			},
 			Resources: []string{
-				"doltclusters",
+				"doltdbs",
 			},
 			Verbs: []string{
 				"get",
@@ -133,8 +133,8 @@ func (r *RBACReconciler) reconcileRole(ctx context.Context, key types.Namespaced
 	return role, nil
 }
 
-// reconcileRoleBinding ensures that a RoleBinding exists for the given DoltCluster.
-func (r *RBACReconciler) reconcileRoleBinding(ctx context.Context, key types.NamespacedName, doltdb *doltv1alpha.DoltCluster, sa *corev1.ServiceAccount, roleRef rbacv1.RoleRef) error {
+// reconcileRoleBinding ensures that a RoleBinding exists for the given DoltDB.
+func (r *RBACReconciler) reconcileRoleBinding(ctx context.Context, key types.NamespacedName, doltdb *doltv1alpha.DoltDB, sa *corev1.ServiceAccount, roleRef rbacv1.RoleRef) error {
 	var existingRB rbacv1.RoleBinding
 	err := r.Get(ctx, key, &existingRB)
 	if err == nil {
@@ -154,8 +154,8 @@ func (r *RBACReconciler) reconcileRoleBinding(ctx context.Context, key types.Nam
 	return nil
 }
 
-// reconcileClusterRoleBinding ensures that a ClusterRoleBinding exists for the given DoltCluster.
-func (r *RBACReconciler) reconcileClusterRoleBinding(ctx context.Context, key types.NamespacedName, doltdb *doltv1alpha.DoltCluster, sa *corev1.ServiceAccount, roleRef rbacv1.RoleRef) error {
+// reconcileClusterRoleBinding ensures that a ClusterRoleBinding exists for the given DoltDB.
+func (r *RBACReconciler) reconcileClusterRoleBinding(ctx context.Context, key types.NamespacedName, doltdb *doltv1alpha.DoltDB, sa *corev1.ServiceAccount, roleRef rbacv1.RoleRef) error {
 	var existingCRB rbacv1.ClusterRoleBinding
 	err := r.Get(ctx, key, &existingCRB)
 	if err == nil {
@@ -193,8 +193,8 @@ func isOwnedBy(owner client.Object, child client.Object) bool {
 }
 
 // authDelegatorRoleNameOrDefault defines the ClusterRoleBinding name bound to system:auth-delegator.
-// It falls back to the DoltCluster name if AuthDelegatorRoleName is not set.
-func authDelegatorRoleNameOrDefault(doltdb *doltv1alpha.DoltCluster) string {
+// It falls back to the DoltDB name if AuthDelegatorRoleName is not set.
+func authDelegatorRoleNameOrDefault(doltdb *doltv1alpha.DoltDB) string {
 	name := fmt.Sprintf("%s-%s", doltdb.Name, doltdb.Namespace)
 	parts := strings.Split(string(doltdb.UID), "-")
 	if len(parts) > 0 {

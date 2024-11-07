@@ -12,18 +12,18 @@ import (
 func TestGenerateConfigMapData(t *testing.T) {
 	tests := []struct {
 		name          string
-		doltCluster   *doltv1alpha.DoltCluster
+		doltdb        *doltv1alpha.DoltDB
 		expectedData  map[string]string
 		expectedError bool
 	}{
 		{
 			name: "default max connections",
-			doltCluster: &doltv1alpha.DoltCluster{
+			doltdb: &doltv1alpha.DoltDB{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-cluster",
 					Namespace: "default",
 				},
-				Spec: doltv1alpha.DoltClusterSpec{
+				Spec: doltv1alpha.DoltDBSpec{
 					Replicas: 2,
 				},
 			},
@@ -61,12 +61,12 @@ remotesapi:
 		},
 		{
 			name: "custom max connections",
-			doltCluster: &doltv1alpha.DoltCluster{
+			doltdb: &doltv1alpha.DoltDB{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-cluster",
 					Namespace: "default",
 				},
-				Spec: doltv1alpha.DoltClusterSpec{
+				Spec: doltv1alpha.DoltDBSpec{
 					Replicas:       1,
 					MaxConnections: int32Ptr(200),
 				},
@@ -91,7 +91,7 @@ remotesapi:
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			data, err := GenerateConfigMapData(tt.doltCluster)
+			data, err := GenerateConfigMapData(tt.doltdb)
 			if err != nil {
 				if !tt.expectedError {
 					t.Fatalf("unexpected error, got: %v", err)

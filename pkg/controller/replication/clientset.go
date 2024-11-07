@@ -14,9 +14,9 @@ type ReplicationClientSet struct {
 	*sqlClient.ClientSet
 }
 
-func NewReplicationClientSet(doltCluster *doltv1alpha.DoltCluster, refResolver *refresolver.RefResolver) *ReplicationClientSet {
+func NewReplicationClientSet(doltdb *doltv1alpha.DoltDB, refResolver *refresolver.RefResolver) *ReplicationClientSet {
 	return &ReplicationClientSet{
-		ClientSet: sqlClient.NewClientSet(doltCluster, refResolver),
+		ClientSet: sqlClient.NewClientSet(doltdb, refResolver),
 	}
 }
 

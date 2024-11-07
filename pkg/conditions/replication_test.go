@@ -10,18 +10,18 @@ import (
 
 func TestSetPrimarySwitching(t *testing.T) {
 	tests := []struct {
-		name        string
-		doltCluster *doltv1alpha.DoltCluster
-		expected    []metav1.Condition
+		name     string
+		doltdb   *doltv1alpha.DoltDB
+		expected []metav1.Condition
 	}{
 		{
 			name: "Primary switching",
-			doltCluster: &doltv1alpha.DoltCluster{
+			doltdb: &doltv1alpha.DoltDB{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-cluster",
 					Namespace: "default",
 				},
-				Spec: doltv1alpha.DoltClusterSpec{
+				Spec: doltv1alpha.DoltDBSpec{
 					Replication: &doltv1alpha.Replication{
 						ReplicationSpec: doltv1alpha.ReplicationSpec{
 							Primary: &doltv1alpha.PrimaryReplication{
@@ -52,7 +52,7 @@ func TestSetPrimarySwitching(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mock := &MockConditioner{}
-			SetPrimarySwitching(mock, tt.doltCluster)
+			SetPrimarySwitching(mock, tt.doltdb)
 
 			if len(mock.conditions) != len(tt.expected) {
 				t.Fatalf("expected %d conditions, got %d", len(tt.expected), len(mock.conditions))

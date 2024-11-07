@@ -69,20 +69,20 @@ func TestComplete_PatcherRefResolver(t *testing.T) {
 		{
 			name:     "no error",
 			err:      nil,
-			obj:      &doltv1alpha.DoltCluster{},
+			obj:      &doltv1alpha.DoltDB{},
 			expected: "",
 		},
 		{
 			name:     "not found error",
-			err:      apierrors.NewNotFound(doltv1alpha.GroupVersion.WithResource("doltclusters").GroupResource(), "name"),
-			obj:      &doltv1alpha.DoltCluster{},
-			expected: "DoltCluster not found",
+			err:      apierrors.NewNotFound(doltv1alpha.GroupVersion.WithResource("doltdbs").GroupResource(), "name"),
+			obj:      &doltv1alpha.DoltDB{},
+			expected: "DoltDB not found",
 		},
 		{
 			name:     "generic error",
 			err:      errors.New("generic error"),
-			obj:      &doltv1alpha.DoltCluster{},
-			expected: "Error getting DoltCluster",
+			obj:      &doltv1alpha.DoltDB{},
+			expected: "Error getting DoltDB",
 		},
 	}
 

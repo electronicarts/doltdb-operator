@@ -19,7 +19,7 @@ type PodDisruptionBudgetOpts struct {
 	SelectorLabels map[string]string
 }
 
-func (b *Builder) BuildPodDisruptionBudget(opts PodDisruptionBudgetOpts, owner *doltv1alpha.DoltCluster) (*policyv1.PodDisruptionBudget, error) {
+func (b *Builder) BuildPodDisruptionBudget(opts PodDisruptionBudgetOpts, owner *doltv1alpha.DoltDB) (*policyv1.PodDisruptionBudget, error) {
 	objMeta :=
 		NewMetadataBuilder(opts.Key).
 			WithMetadata(opts.Metadata).

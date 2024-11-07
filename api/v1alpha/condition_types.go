@@ -34,8 +34,8 @@ const (
 	ConditionReasonFailed  string = "Failed"
 )
 
-// SetCondition sets a status condition to DoltCluster
-func (s *DoltClusterStatus) SetCondition(condition metav1.Condition) {
+// SetCondition sets a status condition to DoltDB
+func (s *DoltDBStatus) SetCondition(condition metav1.Condition) {
 	if s.Conditions == nil {
 		s.Conditions = make([]metav1.Condition, 0)
 	}
@@ -43,35 +43,35 @@ func (s *DoltClusterStatus) SetCondition(condition metav1.Condition) {
 }
 
 // UpdateCurrentPrimary updates the current primary status.
-func (s *DoltClusterStatus) UpdateCurrentPrimary(doltCluster *DoltCluster, index int) {
+func (s *DoltDBStatus) UpdateCurrentPrimary(doltdb *DoltDB, index int) {
 	s.CurrentPrimaryPodIndex = &index
-	currentPrimary := statefulset.PodName(doltCluster.ObjectMeta, index)
+	currentPrimary := statefulset.PodName(doltdb.ObjectMeta, index)
 	s.CurrentPrimary = &currentPrimary
 }
 
 // UpdateReplicationEpoch updates the current epoch
-func (s *DoltClusterStatus) UpdateReplicationEpoch(doltCluster *DoltCluster, epoch int) {
+func (s *DoltDBStatus) UpdateReplicationEpoch(doltdb *DoltDB, epoch int) {
 	// NOTE: should check if incoming epoch is less than current?
 	s.ReplicationEpoch = &epoch
 }
 
 // IsSwitchingPrimary indicates whether the primary is being switched.
-func (d *DoltCluster) IsSwitchingPrimary() bool {
+func (d *DoltDB) IsSwitchingPrimary() bool {
 	return meta.IsStatusConditionFalse(d.Status.Conditions, ConditionTypePrimarySwitched)
 }
 
-// IsReady indicates whether the DoltCluster instance is ready
-func (d *DoltCluster) IsReady() bool {
+// IsReady indicates whether the DoltDB instance is ready
+func (d *DoltDB) IsReady() bool {
 	return meta.IsStatusConditionTrue(d.Status.Conditions, ConditionTypeReady)
 }
 
-// IsResizingStorage indicates whether the DoltCluster instance is resizing storage
-func (d *DoltCluster) IsResizingStorage() bool {
+// IsResizingStorage indicates whether the DoltDB instance is resizing storage
+func (d *DoltDB) IsResizingStorage() bool {
 	return meta.IsStatusConditionFalse(d.Status.Conditions, ConditionTypeStorageResized)
 }
 
-// IsResizingStorage indicates whether the DoltCluster instance is waiting for storage resize
-func (d *DoltCluster) IsWaitingForStorageResize() bool {
+// IsResizingStorage indicates whether the DoltDB instance is waiting for storage resize
+func (d *DoltDB) IsWaitingForStorageResize() bool {
 	condition := meta.FindStatusCondition(d.Status.Conditions, ConditionTypeStorageResized)
 	if condition == nil {
 		return false
@@ -79,8 +79,8 @@ func (d *DoltCluster) IsWaitingForStorageResize() bool {
 	return condition.Status == metav1.ConditionFalse && condition.Reason == ConditionReasonWaitStorageResize
 }
 
-// HasPendingUpdate indicates that DoltCluster has a pending update.
-func (d *DoltCluster) HasPendingUpdate() bool {
+// HasPendingUpdate indicates that DoltDB has a pending update.
+func (d *DoltDB) HasPendingUpdate() bool {
 	condition := meta.FindStatusCondition(d.Status.Conditions, ConditionTypeUpdated)
 	if condition == nil {
 		return false
@@ -88,8 +88,8 @@ func (d *DoltCluster) HasPendingUpdate() bool {
 	return condition.Status == metav1.ConditionFalse && condition.Reason == ConditionReasonPendingUpdate
 }
 
-// IsUpdating indicates that a DoltCluster update is in progress.
-func (d *DoltCluster) IsUpdating() bool {
+// IsUpdating indicates that a DoltDB update is in progress.
+func (d *DoltDB) IsUpdating() bool {
 	condition := meta.FindStatusCondition(d.Status.Conditions, ConditionTypeUpdated)
 	if condition == nil {
 		return false

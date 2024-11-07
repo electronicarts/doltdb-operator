@@ -162,10 +162,10 @@ var _ = BeforeSuite(func() {
 
 	By("Creating initial test data")
 	testCreateInitialData(ctx)
-})
 
-var _ = AfterSuite(func() {
-	By("Cleanup the instance DoltCluster")
-	testCleanupInitialData(ctx)
-	cancel()
+	DeferCleanup(func() {
+		By("Cleaning up initial test data")
+		testCleanupInitialData(ctx)
+		cancel()
+	})
 })

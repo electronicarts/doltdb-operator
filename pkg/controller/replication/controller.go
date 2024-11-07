@@ -68,12 +68,12 @@ func NewReplicationReconciler(client client.Client, recorder record.EventRecorde
 }
 
 type reconcileRequest struct {
-	doltdb    *doltv1alpha.DoltCluster
+	doltdb    *doltv1alpha.DoltDB
 	key       types.NamespacedName
 	clientSet *ReplicationClientSet
 }
 
-func (r *ReplicationReconciler) Reconcile(ctx context.Context, doltdb *doltv1alpha.DoltCluster) (ctrl.Result, error) {
+func (r *ReplicationReconciler) Reconcile(ctx context.Context, doltdb *doltv1alpha.DoltDB) (ctrl.Result, error) {
 	logger := log.FromContext(ctx).WithName("replication")
 	switchoverLogger := log.FromContext(ctx).WithName("switchover")
 
@@ -173,8 +173,8 @@ func (r *ReplicationReconciler) reconcileReplicationInPod(ctx context.Context, r
 	return r.replConfig.ConfigureReplica(ctx, req.doltdb, client, index, nextReplicationEpoch)
 }
 
-func (r *ReplicationReconciler) patchStatus(ctx context.Context, doltdb *doltv1alpha.DoltCluster,
-	patcher func(*doltv1alpha.DoltClusterStatus)) error {
+func (r *ReplicationReconciler) patchStatus(ctx context.Context, doltdb *doltv1alpha.DoltDB,
+	patcher func(*doltv1alpha.DoltDBStatus)) error {
 	patch := client.MergeFrom(doltdb.DeepCopy())
 	patcher(&doltdb.Status)
 	return r.Status().Patch(ctx, doltdb, patch)

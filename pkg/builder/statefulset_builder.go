@@ -16,9 +16,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-// BuildDoltStatefulSet constructs a StatefulSet for a DoltCluster based on the provided NamespacedName and DoltCluster object.
+// BuildDoltStatefulSet constructs a StatefulSet for a DoltDB based on the provided NamespacedName and DoltDB object.
 // It sets up the metadata, labels, volume claim templates, and pod template for the StatefulSet.
-func (b *Builder) BuildDoltStatefulSet(key types.NamespacedName, doltdb *doltv1alpha.DoltCluster) (*appsv1.StatefulSet, error) {
+func (b *Builder) BuildDoltStatefulSet(key types.NamespacedName, doltdb *doltv1alpha.DoltDB) (*appsv1.StatefulSet, error) {
 	labels := NewLabelsBuilder().
 		WithDoltSelectorLabels(doltdb).
 		WithVersion(doltdb.Spec.EngineVersion).
@@ -59,8 +59,8 @@ func (b *Builder) BuildDoltStatefulSet(key types.NamespacedName, doltdb *doltv1a
 	return statefulSet, nil
 }
 
-// doltVolumeClaimTemplates constructs a PersistentVolumeClaim for the given DoltCluster.
-func doltVolumeClaimTemplates(metadata metav1.ObjectMeta, doltdb *doltv1alpha.DoltCluster) []corev1.PersistentVolumeClaim {
+// doltVolumeClaimTemplates constructs a PersistentVolumeClaim for the given DoltDB.
+func doltVolumeClaimTemplates(metadata metav1.ObjectMeta, doltdb *doltv1alpha.DoltDB) []corev1.PersistentVolumeClaim {
 	labels := NewLabelsBuilder().
 		WithDoltSelectorLabels(doltdb).
 		Build()

@@ -10,8 +10,8 @@ import (
 )
 
 // SetPrimarySwitching sets the conditions indicating that the primary is in the process of switching.
-func SetPrimarySwitching(c Conditioner, doltCluster *doltv1alpha.DoltCluster) {
-	msg := switchingPrimaryMessage(doltCluster)
+func SetPrimarySwitching(c Conditioner, doltdb *doltv1alpha.DoltDB) {
+	msg := switchingPrimaryMessage(doltdb)
 	c.SetCondition(metav1.Condition{
 		Type:    doltv1alpha.ConditionTypeReady,
 		Status:  metav1.ConditionFalse,
@@ -37,9 +37,9 @@ func SetPrimarySwitched(c Conditioner) {
 }
 
 // switchingPrimaryMessage generates a message indicating the target primary pod during a switch.
-func switchingPrimaryMessage(doltCluster *doltv1alpha.DoltCluster) string {
+func switchingPrimaryMessage(doltdb *doltv1alpha.DoltDB) string {
 	return fmt.Sprintf(
 		"Switching primary to '%s'",
-		statefulset.PodName(doltCluster.ObjectMeta, ptr.Deref(doltCluster.Replication().Primary.PodIndex, 0)),
+		statefulset.PodName(doltdb.ObjectMeta, ptr.Deref(doltdb.Replication().Primary.PodIndex, 0)),
 	)
 }

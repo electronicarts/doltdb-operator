@@ -68,7 +68,7 @@ var (
 )
 
 // Replication with defaulting accessor
-func (d *DoltCluster) Replication() Replication {
+func (d *DoltDB) Replication() Replication {
 	if d.Spec.Replication == nil {
 		d.Spec.Replication = &Replication{}
 	}
@@ -101,6 +101,6 @@ func (r ReplicationStatus) IsReplicationConfigured() bool {
 	return anyReplicaConfigured
 }
 
-func (d *DoltCluster) IsReplicationConfigured() bool {
+func (d *DoltDB) IsReplicationConfigured() bool {
 	return d.Status.ReplicationStatus.IsReplicationConfigured()
 }

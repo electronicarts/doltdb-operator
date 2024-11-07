@@ -8,7 +8,7 @@ import (
 )
 
 // GenerateConfigMapData generates the configuration data for the ConfigMap based on the number of replicas.
-func GenerateConfigMapData(doltdb *doltv1alpha.DoltCluster) (map[string]string, error) {
+func GenerateConfigMapData(doltdb *doltv1alpha.DoltDB) (map[string]string, error) {
 	var maxConnections int32
 
 	if doltdb.Spec.MaxConnections != nil {
@@ -45,7 +45,7 @@ func GenerateConfigMapData(doltdb *doltv1alpha.DoltCluster) (map[string]string, 
 }
 
 // generateStandbyRemotes generates the standby remotes section of the configuration.
-func generateStandbyRemotes(current int, doltdb *doltv1alpha.DoltCluster) []StandbyRemote {
+func generateStandbyRemotes(current int, doltdb *doltv1alpha.DoltDB) []StandbyRemote {
 	var remotes []StandbyRemote
 	for i := 0; i < int(doltdb.Spec.Replicas); i++ {
 		if i != current {

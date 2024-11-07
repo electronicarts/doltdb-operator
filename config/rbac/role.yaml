@@ -79,7 +79,7 @@ rules:
 - apiGroups:
   - k8s.dolthub.com
   resources:
-  - doltclusters
+  - doltdbs
   verbs:
   - create
   - delete
@@ -91,13 +91,13 @@ rules:
 - apiGroups:
   - k8s.dolthub.com
   resources:
-  - doltclusters/finalizers
+  - doltdbs/finalizers
   verbs:
   - update
 - apiGroups:
   - k8s.dolthub.com
   resources:
-  - doltclusters/status
+  - doltdbs/status
   verbs:
   - get
   - patch

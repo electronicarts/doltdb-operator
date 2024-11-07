@@ -67,18 +67,18 @@ func IsStatefulSetHealthy(
 }
 
 // HealthyDoltDBReplica returns the index of a healthy DoltDB replica that is not the current primary pod.
-func HealthyDoltDBReplica(ctx context.Context, client ctrlclient.Client, doltCluster *doltv1alpha.DoltCluster) (*int, error) {
-	if doltCluster.Status.CurrentPrimaryPodIndex == nil {
+func HealthyDoltDBReplica(ctx context.Context, client ctrlclient.Client, doltdb *doltv1alpha.DoltDB) (*int, error) {
+	if doltdb.Status.CurrentPrimaryPodIndex == nil {
 		return nil, errors.New("'status.currentPrimaryPodIndex' must be set")
 	}
 	podList := corev1.PodList{}
 	listOpts := &ctrlclient.ListOptions{
 		LabelSelector: klabels.SelectorFromSet(
 			builder.NewLabelsBuilder().
-				WithDoltSelectorLabels(doltCluster).
+				WithDoltSelectorLabels(doltdb).
 				Build(),
 		),
-		Namespace: doltCluster.GetNamespace(),
+		Namespace: doltdb.GetNamespace(),
 	}
 
 	if err := client.List(ctx, &podList, listOpts); err != nil {
@@ -91,7 +91,7 @@ func HealthyDoltDBReplica(ctx context.Context, client ctrlclient.Client, doltClu
 		if err != nil {
 			return nil, fmt.Errorf("error getting index for Pod '%s': %v", p.Name, err)
 		}
-		if *index == *doltCluster.Status.CurrentPrimaryPodIndex {
+		if *index == *doltdb.Status.CurrentPrimaryPodIndex {
 			continue
 		}
 		if pod.PodReady(&p) {
@@ -102,7 +102,7 @@ func HealthyDoltDBReplica(ctx context.Context, client ctrlclient.Client, doltClu
 }
 
 // IsDoltDBReplicaHealthy checks if the DoltDB replica specified by the podIndex is healthy.
-func IsDoltDBReplicaHealthy(ctx context.Context, client ctrlclient.Client, doltdb *doltv1alpha.DoltCluster, podIndex int) (*corev1.Pod, bool, error) {
+func IsDoltDBReplicaHealthy(ctx context.Context, client ctrlclient.Client, doltdb *doltv1alpha.DoltDB, podIndex int) (*corev1.Pod, bool, error) {
 	podName := statefulset.PodName(doltdb.ObjectMeta, podIndex)
 	key := types.NamespacedName{
 		Name:      podName,
@@ -116,7 +116,7 @@ func IsDoltDBReplicaHealthy(ctx context.Context, client ctrlclient.Client, doltd
 }
 
 // HealthyDoltDBStandbys returns a list of healthy DoltDB standbys that are not the current primary pod.
-func HealthyDoltDBStandbys(ctx context.Context, client ctrlclient.Client, doltdb *doltv1alpha.DoltCluster) ([]corev1.Pod, error) {
+func HealthyDoltDBStandbys(ctx context.Context, client ctrlclient.Client, doltdb *doltv1alpha.DoltDB) ([]corev1.Pod, error) {
 	podList := corev1.PodList{}
 	listOpts := &ctrlclient.ListOptions{
 		LabelSelector: klabels.SelectorFromSet(

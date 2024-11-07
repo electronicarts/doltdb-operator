@@ -22,7 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-func shouldReconcileStorage(doltdb *doltv1alpha.DoltCluster) bool {
+func shouldReconcileStorage(doltdb *doltv1alpha.DoltDB) bool {
 	if doltdb.IsUpdating() ||
 		doltdb.IsSwitchingPrimary() {
 		return false
@@ -30,7 +30,7 @@ func shouldReconcileStorage(doltdb *doltv1alpha.DoltCluster) bool {
 	return true
 }
 
-func (r *DoltDBReconciler) reconcileStorage(ctx context.Context, doltdb *doltv1alpha.DoltCluster) (ctrl.Result, error) {
+func (r *DoltDBReconciler) reconcileStorage(ctx context.Context, doltdb *doltv1alpha.DoltDB) (ctrl.Result, error) {
 	if !shouldReconcileStorage(doltdb) {
 		return ctrl.Result{}, nil
 	}
@@ -60,7 +60,7 @@ func (r *DoltDBReconciler) reconcileStorage(ctx context.Context, doltdb *doltv1a
 		return ctrl.Result{}, fmt.Errorf("cannot decrease storage size from '%s' to '%s'", existingSize, desiredSize)
 	}
 
-	if err := r.patchStatus(ctx, doltdb, func(status *doltv1alpha.DoltClusterStatus) error {
+	if err := r.patchStatus(ctx, doltdb, func(status *doltv1alpha.DoltDBStatus) error {
 		conditions.SetReadyStorageResizing(status)
 		return nil
 	}); err != nil {
@@ -74,7 +74,7 @@ func (r *DoltDBReconciler) reconcileStorage(ctx context.Context, doltdb *doltv1a
 		return result, err
 	}
 
-	if err := r.patchStatus(ctx, doltdb, func(status *doltv1alpha.DoltClusterStatus) error {
+	if err := r.patchStatus(ctx, doltdb, func(status *doltv1alpha.DoltDBStatus) error {
 		conditions.SetReadyWaitingStorageResize(status)
 		return nil
 	}); err != nil {
@@ -84,7 +84,7 @@ func (r *DoltDBReconciler) reconcileStorage(ctx context.Context, doltdb *doltv1a
 	return r.waitForStorageResize(ctx, doltdb)
 }
 
-func (r *DoltDBReconciler) resizeInUsePVCs(ctx context.Context, doltdb *doltv1alpha.DoltCluster,
+func (r *DoltDBReconciler) resizeInUsePVCs(ctx context.Context, doltdb *doltv1alpha.DoltDB,
 	size resource.Quantity) (ctrl.Result, error) {
 	if !ptr.Deref(doltdb.Spec.Storage.ResizeInUseVolumes, true) {
 		return ctrl.Result{}, nil
@@ -104,7 +104,7 @@ func (r *DoltDBReconciler) resizeInUsePVCs(ctx context.Context, doltdb *doltv1al
 	return ctrl.Result{}, nil
 }
 
-func (r *DoltDBReconciler) resizeStatefulSet(ctx context.Context, doltdb *doltv1alpha.DoltCluster,
+func (r *DoltDBReconciler) resizeStatefulSet(ctx context.Context, doltdb *doltv1alpha.DoltDB,
 	sts *appsv1.StatefulSet) (ctrl.Result, error) {
 	if err := r.Delete(ctx, sts, &client.DeleteOptions{PropagationPolicy: ptr.To(metav1.DeletePropagationOrphan)}); err != nil {
 		return ctrl.Result{}, fmt.Errorf("error deleting StatefulSet: %v", err)
@@ -112,7 +112,7 @@ func (r *DoltDBReconciler) resizeStatefulSet(ctx context.Context, doltdb *doltv1
 	return r.reconcileStatefulSet(ctx, doltdb)
 }
 
-func (r *DoltDBReconciler) waitForStorageResize(ctx context.Context, doltdb *doltv1alpha.DoltCluster) (ctrl.Result, error) {
+func (r *DoltDBReconciler) waitForStorageResize(ctx context.Context, doltdb *doltv1alpha.DoltDB) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 	logger.V(1).Info("Waiting for storage resize")
 
@@ -143,7 +143,7 @@ func (r *DoltDBReconciler) waitForStorageResize(ctx context.Context, doltdb *dol
 		return ctrl.Result{RequeueAfter: 1 * time.Second}, nil
 	}
 
-	if err := r.patchStatus(ctx, doltdb, func(status *doltv1alpha.DoltClusterStatus) error {
+	if err := r.patchStatus(ctx, doltdb, func(status *doltv1alpha.DoltDBStatus) error {
 		conditions.SetReadyStorageResized(status)
 		return nil
 	}); err != nil {
@@ -152,7 +152,7 @@ func (r *DoltDBReconciler) waitForStorageResize(ctx context.Context, doltdb *dol
 	return ctrl.Result{}, nil
 }
 
-func (r *DoltDBReconciler) getStoragePVCs(ctx context.Context, doltdb *doltv1alpha.DoltCluster) ([]corev1.PersistentVolumeClaim, error) {
+func (r *DoltDBReconciler) getStoragePVCs(ctx context.Context, doltdb *doltv1alpha.DoltDB) ([]corev1.PersistentVolumeClaim, error) {
 	pvcList := corev1.PersistentVolumeClaimList{}
 	listOpts := client.ListOptions{
 		LabelSelector: klabels.SelectorFromSet(

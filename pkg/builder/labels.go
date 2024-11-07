@@ -47,7 +47,7 @@ func (b *LabelsBuilder) WithInstance(instance string) *LabelsBuilder {
 }
 
 // WithStatefulSetPod sets the stateful set pod name label.
-func (b *LabelsBuilder) WithStatefulSetPod(doltdb *doltv1alpha.DoltCluster, podIndex int) *LabelsBuilder {
+func (b *LabelsBuilder) WithStatefulSetPod(doltdb *doltv1alpha.DoltDB, podIndex int) *LabelsBuilder {
 	b.labels[statefulSetPodName] = statefulset.PodName(doltdb.ObjectMeta, podIndex)
 	return b
 }
@@ -60,8 +60,8 @@ func (b *LabelsBuilder) WithLabels(labels map[string]string) *LabelsBuilder {
 	return b
 }
 
-// WithDoltSelectorLabels sets the app and instance labels for a DoltCluster.
-func (b *LabelsBuilder) WithDoltSelectorLabels(doltdb *doltv1alpha.DoltCluster) *LabelsBuilder {
+// WithDoltSelectorLabels sets the app and instance labels for a DoltDB.
+func (b *LabelsBuilder) WithDoltSelectorLabels(doltdb *doltv1alpha.DoltDB) *LabelsBuilder {
 	return b.WithApp(doltdb.Name)
 }
 

@@ -19,7 +19,7 @@ type ConfigMapOpts struct {
 
 // BuildConfigMap creates a ConfigMap based on the provided options and sets the owner reference.
 // It returns the created ConfigMap or an error if the operation fails.
-func (b *Builder) BuildConfigMap(options ConfigMapOpts, doltdb *doltv1alpha.DoltCluster) (*corev1.ConfigMap, error) {
+func (b *Builder) BuildConfigMap(options ConfigMapOpts, doltdb *doltv1alpha.DoltDB) (*corev1.ConfigMap, error) {
 	labels := NewLabelsBuilder().
 		WithDoltSelectorLabels(doltdb).
 		Build()

@@ -93,7 +93,7 @@ func NewClient(clientOpts ...Opt) (*Client, error) {
 	}, nil
 }
 
-func NewClientWithDoltDB(ctx context.Context, doltdb *doltv1alpha1.DoltCluster, refResolver *refresolver.RefResolver,
+func NewClientWithDoltDB(ctx context.Context, doltdb *doltv1alpha1.DoltDB, refResolver *refresolver.RefResolver,
 	clientOpts ...Opt) (*Client, error) {
 	password, err := refResolver.SecretKeyRef(ctx, doltdb.RootPasswordSecretKeyRef(), doltdb.Namespace)
 	if err != nil {
@@ -114,7 +114,7 @@ func NewClientWithDoltDB(ctx context.Context, doltdb *doltv1alpha1.DoltCluster, 
 	return NewClient(opts...)
 }
 
-func NewInternalClientWithPodIndex(ctx context.Context, doltdb *doltv1alpha1.DoltCluster, refResolver *refresolver.RefResolver,
+func NewInternalClientWithPodIndex(ctx context.Context, doltdb *doltv1alpha1.DoltDB, refResolver *refresolver.RefResolver,
 	podIndex int, clientOpts ...Opt) (*Client, error) {
 	opts := []Opt{
 		WitHost(

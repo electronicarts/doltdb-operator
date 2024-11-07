@@ -22,14 +22,14 @@ func TestDoltDBImagePullSecrets(t *testing.T) {
 
 	tests := []struct {
 		name            string
-		doltdb          *doltv1alpha.DoltCluster
+		doltdb          *doltv1alpha.DoltDB
 		wantPullSecrets []corev1.LocalObjectReference
 	}{
 		{
 			name: "No Secrets",
-			doltdb: &doltv1alpha.DoltCluster{
+			doltdb: &doltv1alpha.DoltDB{
 				ObjectMeta: objMeta,
-				Spec: doltv1alpha.DoltClusterSpec{
+				Spec: doltv1alpha.DoltDBSpec{
 					UpdateStrategy: &appsv1.StatefulSetUpdateStrategy{
 						Type: appsv1.RollingUpdateStatefulSetStrategyType,
 					},
@@ -39,9 +39,9 @@ func TestDoltDBImagePullSecrets(t *testing.T) {
 		},
 		{
 			name: "Secrets in DoltDB",
-			doltdb: &doltv1alpha.DoltCluster{
+			doltdb: &doltv1alpha.DoltDB{
 				ObjectMeta: objMeta,
-				Spec: doltv1alpha.DoltClusterSpec{
+				Spec: doltv1alpha.DoltDBSpec{
 					ImagePullSecrets: []corev1.LocalObjectReference{
 						{
 							Name: "harbor-registry",
@@ -80,16 +80,16 @@ func TestDoltDBStatefulSetMeta(t *testing.T) {
 	}
 	tests := []struct {
 		name           string
-		doltdb         *doltv1alpha.DoltCluster
+		doltdb         *doltv1alpha.DoltDB
 		podAnnotations map[string]string
-		wantMeta       *doltv1alpha.DoltCluster
-		wantPodMeta    *doltv1alpha.DoltCluster
+		wantMeta       *doltv1alpha.DoltDB
+		wantPodMeta    *doltv1alpha.DoltDB
 	}{
 		{
 			name: "empty",
-			doltdb: &doltv1alpha.DoltCluster{
+			doltdb: &doltv1alpha.DoltDB{
 				ObjectMeta: objMeta,
-				Spec: doltv1alpha.DoltClusterSpec{
+				Spec: doltv1alpha.DoltDBSpec{
 					EngineVersion: "1.43.5",
 					UpdateStrategy: &appsv1.StatefulSetUpdateStrategy{
 						Type: appsv1.RollingUpdateStatefulSetStrategyType,
@@ -97,7 +97,7 @@ func TestDoltDBStatefulSetMeta(t *testing.T) {
 				},
 			},
 			podAnnotations: nil,
-			wantMeta: &doltv1alpha.DoltCluster{
+			wantMeta: &doltv1alpha.DoltDB{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						"app.kubernetes.io/name":    "doltdb",
@@ -109,7 +109,7 @@ func TestDoltDBStatefulSetMeta(t *testing.T) {
 					},
 				},
 			},
-			wantPodMeta: &doltv1alpha.DoltCluster{
+			wantPodMeta: &doltv1alpha.DoltDB{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						"app.kubernetes.io/name":    "doltdb",
@@ -142,14 +142,14 @@ func TestDoltDBPersistentVolumeClaims(t *testing.T) {
 	}
 	tests := []struct {
 		name        string
-		doltdb      *doltv1alpha.DoltCluster
+		doltdb      *doltv1alpha.DoltDB
 		wantVolumes []string
 	}{
 		{
 			name: "standalone",
-			doltdb: &doltv1alpha.DoltCluster{
+			doltdb: &doltv1alpha.DoltDB{
 				ObjectMeta: objMeta,
-				Spec: doltv1alpha.DoltClusterSpec{
+				Spec: doltv1alpha.DoltDBSpec{
 					Storage: doltv1alpha.Storage{
 						Size: ptr.To(resource.MustParse("1Gi")),
 					},
@@ -159,9 +159,9 @@ func TestDoltDBPersistentVolumeClaims(t *testing.T) {
 		},
 		{
 			name: "replication",
-			doltdb: &doltv1alpha.DoltCluster{
+			doltdb: &doltv1alpha.DoltDB{
 				ObjectMeta: objMeta,
-				Spec: doltv1alpha.DoltClusterSpec{
+				Spec: doltv1alpha.DoltDBSpec{
 					Storage: doltv1alpha.Storage{
 						Size: ptr.To(resource.MustParse("1Gi")),
 					},

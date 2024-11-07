@@ -26,14 +26,14 @@ var (
 	ErrSkipReconciliationPhase = errors.New("skipping reconciliation phase")
 )
 
-func shouldReconcileUpdates(doltdb *doltv1alpha.DoltCluster) bool {
+func shouldReconcileUpdates(doltdb *doltv1alpha.DoltDB) bool {
 	if doltdb.IsResizingStorage() || doltdb.IsSwitchingPrimary() {
 		return false
 	}
 	return true
 }
 
-func (r *DoltDBReconciler) reconcileUpdates(ctx context.Context, doltdb *doltv1alpha.DoltCluster) (ctrl.Result, error) {
+func (r *DoltDBReconciler) reconcileUpdates(ctx context.Context, doltdb *doltv1alpha.DoltDB) (ctrl.Result, error) {
 	if !shouldReconcileUpdates(doltdb) {
 		return ctrl.Result{}, nil
 	}
@@ -93,7 +93,7 @@ func (r *DoltDBReconciler) reconcileUpdates(ctx context.Context, doltdb *doltv1a
 	return ctrl.Result{}, nil
 }
 
-func (r *DoltDBReconciler) waitForReadyStatus(ctx context.Context, doltdb *doltv1alpha.DoltCluster, logger logr.Logger) (ctrl.Result, error) {
+func (r *DoltDBReconciler) waitForReadyStatus(ctx context.Context, doltdb *doltv1alpha.DoltDB, logger logr.Logger) (ctrl.Result, error) {
 	var sts appsv1.StatefulSet
 	if err := r.Get(ctx, client.ObjectKeyFromObject(doltdb), &sts); err != nil {
 		return ctrl.Result{}, err
@@ -106,7 +106,7 @@ func (r *DoltDBReconciler) waitForReadyStatus(ctx context.Context, doltdb *doltv
 	return ctrl.Result{}, nil
 }
 
-func (r *DoltDBReconciler) waitForConfiguredReplication(doltdb *doltv1alpha.DoltCluster, logger logr.Logger) (ctrl.Result, error) {
+func (r *DoltDBReconciler) waitForConfiguredReplication(doltdb *doltv1alpha.DoltDB, logger logr.Logger) (ctrl.Result, error) {
 	if !doltdb.Replication().Enabled {
 		return ctrl.Result{}, nil
 	}
@@ -166,7 +166,7 @@ func (p *podRoleSet) getStalePodNames(updateRevision string) []string {
 	return podNames
 }
 
-func (r *DoltDBReconciler) getPodsByRole(ctx context.Context, doltdb *doltv1alpha.DoltCluster, podsByRole *podRoleSet,
+func (r *DoltDBReconciler) getPodsByRole(ctx context.Context, doltdb *doltv1alpha.DoltDB, podsByRole *podRoleSet,
 	logger logr.Logger) (ctrl.Result, error) {
 	currentPrimary := ptr.Deref(doltdb.Status.CurrentPrimary, "")
 	if currentPrimary == "" {

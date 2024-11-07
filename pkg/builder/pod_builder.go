@@ -8,7 +8,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func doltVolumes(doltdb *doltv1alpha.DoltCluster) []corev1.Volume {
+func doltVolumes(doltdb *doltv1alpha.DoltDB) []corev1.Volume {
 	configMapKeyRef := doltdb.DefaultConfigMapKeyRef().ToKubernetesType()
 
 	return []corev1.Volume{
@@ -62,7 +62,7 @@ func doltVolumes(doltdb *doltv1alpha.DoltCluster) []corev1.Volume {
 	}
 }
 
-func doltPodTemplate(metadata metav1.ObjectMeta, doltdb *doltv1alpha.DoltCluster) corev1.PodTemplateSpec {
+func doltPodTemplate(metadata metav1.ObjectMeta, doltdb *doltv1alpha.DoltDB) corev1.PodTemplateSpec {
 	labels := NewLabelsBuilder().
 		WithDoltSelectorLabels(doltdb).
 		WithVersion(doltdb.Spec.EngineVersion).

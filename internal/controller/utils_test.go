@@ -57,7 +57,7 @@ func testCreateInitialData(ctx context.Context) {
 
 	Expect(k8sClient.Create(ctx, &secret)).To(Succeed())
 
-	doltdb := doltv1alpha.DoltCluster{
+	doltdb := doltv1alpha.DoltDB{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      testDoltKey.Name,
 			Namespace: testDoltKey.Namespace,
@@ -68,7 +68,7 @@ func testCreateInitialData(ctx context.Context) {
 				"k8s.dolthub.com/test": "test",
 			},
 		},
-		Spec: doltv1alpha.DoltClusterSpec{
+		Spec: doltv1alpha.DoltDBSpec{
 			Image:               "dolthub/dolt",
 			EngineVersion:       "1.7.6",
 			Replicas:            3,
@@ -116,13 +116,13 @@ func testCleanupInitialData(ctx context.Context) {
 
 func expectReady(ctx context.Context, k8sClient client.Client, key types.NamespacedName) {
 	By("Expecting DoltDB to be ready eventually")
-	expectFn(ctx, k8sClient, key, func(doltdb *doltv1alpha.DoltCluster) bool {
+	expectFn(ctx, k8sClient, key, func(doltdb *doltv1alpha.DoltDB) bool {
 		return doltdb.IsReady()
 	})
 }
 
-func expectFn(ctx context.Context, k8sClient client.Client, key types.NamespacedName, fn func(doltdb *doltv1alpha.DoltCluster) bool) {
-	var doltdb doltv1alpha.DoltCluster
+func expectFn(ctx context.Context, k8sClient client.Client, key types.NamespacedName, fn func(doltdb *doltv1alpha.DoltDB) bool) {
+	var doltdb doltv1alpha.DoltDB
 	Eventually(func(g Gomega) bool {
 		g.Expect(k8sClient.Get(ctx, key, &doltdb)).To(Succeed())
 		return fn(&doltdb)
@@ -135,7 +135,7 @@ func deleteDoltDB(ctx context.Context, key types.NamespacedName) {
 	Expect(k8sClient.Get(ctx, testDoltCredentialsKey, &doltSecret)).To(Succeed())
 	Expect(k8sClient.Delete(ctx, &doltSecret)).To(Succeed())
 
-	var doltdb doltv1alpha.DoltCluster
+	var doltdb doltv1alpha.DoltDB
 	By("Deleting DoltDB")
 	Expect(k8sClient.Get(ctx, key, &doltdb)).To(Succeed())
 	Expect(k8sClient.Delete(ctx, &doltdb)).To(Succeed())

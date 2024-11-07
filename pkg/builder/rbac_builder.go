@@ -11,7 +11,7 @@ import (
 )
 
 // BuildServiceAccount creates a ServiceAccount object and sets the controller reference.
-func (b *Builder) BuildServiceAccount(key types.NamespacedName, doltdb *doltv1alpha.DoltCluster) (*corev1.ServiceAccount, error) {
+func (b *Builder) BuildServiceAccount(key types.NamespacedName, doltdb *doltv1alpha.DoltDB) (*corev1.ServiceAccount, error) {
 	objMeta :=
 		NewMetadataBuilder(key).
 			WithMetadata(&doltdb.ObjectMeta).
@@ -26,7 +26,7 @@ func (b *Builder) BuildServiceAccount(key types.NamespacedName, doltdb *doltv1al
 }
 
 // BuildRole creates a Role object with the specified rules and sets the controller reference.
-func (b *Builder) BuildRole(key types.NamespacedName, doltdb *doltv1alpha.DoltCluster, rules []rbacv1.PolicyRule) (*rbacv1.Role, error) {
+func (b *Builder) BuildRole(key types.NamespacedName, doltdb *doltv1alpha.DoltDB, rules []rbacv1.PolicyRule) (*rbacv1.Role, error) {
 	objMeta :=
 		NewMetadataBuilder(key).
 			WithMetadata(&doltdb.ObjectMeta).
@@ -43,7 +43,7 @@ func (b *Builder) BuildRole(key types.NamespacedName, doltdb *doltv1alpha.DoltCl
 }
 
 // BuildRoleBinding creates a RoleBinding object that binds the specified ServiceAccount to the RoleRef and sets the controller reference.
-func (b *Builder) BuildRoleBinding(key types.NamespacedName, doltdb *doltv1alpha.DoltCluster, sa *corev1.ServiceAccount,
+func (b *Builder) BuildRoleBinding(key types.NamespacedName, doltdb *doltv1alpha.DoltDB, sa *corev1.ServiceAccount,
 	roleRef rbacv1.RoleRef) (*rbacv1.RoleBinding, error) {
 	objMeta :=
 		NewMetadataBuilder(key).
@@ -68,7 +68,7 @@ func (b *Builder) BuildRoleBinding(key types.NamespacedName, doltdb *doltv1alpha
 }
 
 // BuildClusterRoleBinding creates a ClusterRoleBinding object that binds the specified ServiceAccount to the RoleRef and sets the controller reference.
-func (b *Builder) BuildClusterRoleBinding(key types.NamespacedName, doltdb *doltv1alpha.DoltCluster, sa *corev1.ServiceAccount,
+func (b *Builder) BuildClusterRoleBinding(key types.NamespacedName, doltdb *doltv1alpha.DoltDB, sa *corev1.ServiceAccount,
 	roleRef rbacv1.RoleRef) (*rbacv1.ClusterRoleBinding, error) {
 	objMeta :=
 		NewMetadataBuilder(key).

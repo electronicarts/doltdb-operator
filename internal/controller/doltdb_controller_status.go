@@ -21,9 +21,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-type patcherDoltDB func(*doltv1alpha.DoltClusterStatus) error
+type patcherDoltDB func(*doltv1alpha.DoltDBStatus) error
 
-func (r *DoltDBReconciler) reconcileStatus(ctx context.Context, doltdb *doltv1alpha.DoltCluster) (ctrl.Result, error) {
+func (r *DoltDBReconciler) reconcileStatus(ctx context.Context, doltdb *doltv1alpha.DoltDB) (ctrl.Result, error) {
 	var sts appsv1.StatefulSet
 	if err := r.Get(ctx, client.ObjectKeyFromObject(doltdb), &sts); err != nil {
 		log.FromContext(ctx).V(1).Info("error getting StatefulSet", "err", err)
@@ -36,7 +36,7 @@ func (r *DoltDBReconciler) reconcileStatus(ctx context.Context, doltdb *doltv1al
 
 	replicationStatus, highestEpoch := r.getReplicationStatusAndEpoch(ctx, doltdb, dbstates)
 
-	return ctrl.Result{}, r.patchStatus(ctx, doltdb, func(status *doltv1alpha.DoltClusterStatus) error {
+	return ctrl.Result{}, r.patchStatus(ctx, doltdb, func(status *doltv1alpha.DoltDBStatus) error {
 		status.Replicas = sts.Status.ReadyReplicas
 		defaultPrimary(doltdb)
 
@@ -60,7 +60,7 @@ func (r *DoltDBReconciler) reconcileStatus(ctx context.Context, doltdb *doltv1al
 	})
 }
 
-func (r *DoltDBReconciler) getStatefulSetRevision(ctx context.Context, doltdb *doltv1alpha.DoltCluster) (string, error) {
+func (r *DoltDBReconciler) getStatefulSetRevision(ctx context.Context, doltdb *doltv1alpha.DoltDB) (string, error) {
 	var sts appsv1.StatefulSet
 	if err := r.Get(ctx, client.ObjectKeyFromObject(doltdb), &sts); err != nil {
 		return "", err
@@ -68,7 +68,7 @@ func (r *DoltDBReconciler) getStatefulSetRevision(ctx context.Context, doltdb *d
 	return sts.Status.UpdateRevision, nil
 }
 
-func (r *DoltDBReconciler) patchStatus(ctx context.Context, doltdb *doltv1alpha.DoltCluster,
+func (r *DoltDBReconciler) patchStatus(ctx context.Context, doltdb *doltv1alpha.DoltDB,
 	patcher patcherDoltDB) error {
 	patch := client.MergeFrom(doltdb.DeepCopy())
 	if err := patcher(&doltdb.Status); err != nil {
@@ -77,7 +77,7 @@ func (r *DoltDBReconciler) patchStatus(ctx context.Context, doltdb *doltv1alpha.
 	return r.Status().Patch(ctx, doltdb, patch)
 }
 
-func (r *DoltDBReconciler) setUpdatedCondition(ctx context.Context, doltdb *doltv1alpha.DoltCluster) error {
+func (r *DoltDBReconciler) setUpdatedCondition(ctx context.Context, doltdb *doltv1alpha.DoltDB) error {
 	stsUpdateRevision, err := r.getStatefulSetRevision(ctx, doltdb)
 	if err != nil {
 		return err
@@ -122,7 +122,7 @@ func (r *DoltDBReconciler) setUpdatedCondition(ctx context.Context, doltdb *dolt
 }
 
 func (r *DoltDBReconciler) getReplicationStatusAndEpoch(ctx context.Context,
-	doltdb *doltv1alpha.DoltCluster, dbstates []dolt.DBState) (doltv1alpha.ReplicationStatus, int) {
+	doltdb *doltv1alpha.DoltDB, dbstates []dolt.DBState) (doltv1alpha.ReplicationStatus, int) {
 	if !doltdb.Replication().Enabled {
 		return nil, -1
 	}
@@ -176,7 +176,7 @@ func (r *DoltDBReconciler) getReplicationStatusAndEpoch(ctx context.Context,
 	return replicationStatus, highestEpoch
 }
 
-func defaultPrimary(doltdb *doltv1alpha.DoltCluster) {
+func defaultPrimary(doltdb *doltv1alpha.DoltDB) {
 	if doltdb.Status.CurrentPrimaryPodIndex != nil || doltdb.Status.CurrentPrimary != nil {
 		return
 	}
