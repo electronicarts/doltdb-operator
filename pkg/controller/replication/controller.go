@@ -8,7 +8,8 @@ import (
 	"github.com/go-logr/logr"
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
 	"github.com/electronicarts/doltdb-operator/pkg/builder"
-	"github.com/electronicarts/doltdb-operator/pkg/controller"
+	"github.com/electronicarts/doltdb-operator/pkg/controller/configmap"
+	"github.com/electronicarts/doltdb-operator/pkg/controller/service"
 	"github.com/electronicarts/doltdb-operator/pkg/dolt"
 	"github.com/electronicarts/doltdb-operator/pkg/health"
 	"github.com/electronicarts/doltdb-operator/pkg/refresolver"
@@ -28,7 +29,7 @@ func WithRefResolver(rr *refresolver.RefResolver) Option {
 	}
 }
 
-func WithServiceReconciler(sr *controller.ServiceReconciler) Option {
+func WithServiceReconciler(sr *service.Reconciler) Option {
 	return func(rr *ReplicationReconciler) {
 		rr.serviceReconciler = sr
 	}
@@ -40,11 +41,11 @@ type ReplicationReconciler struct {
 	builder             *builder.Builder
 	replConfig          *ReplicationConfig
 	refResolver         *refresolver.RefResolver
-	configMapreconciler *controller.ConfigMapReconciler
-	serviceReconciler   *controller.ServiceReconciler
+	configMapreconciler *configmap.Reconciler
+	serviceReconciler   *service.Reconciler
 }
 
-func NewReplicationReconciler(client client.Client, recorder record.EventRecorder, builder *builder.Builder, replConfig *ReplicationConfig,
+func NewReconciler(client client.Client, recorder record.EventRecorder, builder *builder.Builder, replConfig *ReplicationConfig,
 	opts ...Option) (*ReplicationReconciler, error) {
 	r := &ReplicationReconciler{
 		Client:     client,
@@ -59,10 +60,10 @@ func NewReplicationReconciler(client client.Client, recorder record.EventRecorde
 		r.refResolver = refresolver.New(client)
 	}
 	if r.configMapreconciler == nil {
-		r.configMapreconciler = controller.NewConfigMapReconciler(client, builder)
+		r.configMapreconciler = configmap.NewReconciler(client, builder)
 	}
 	if r.serviceReconciler == nil {
-		r.serviceReconciler = controller.NewServiceReconciler(client)
+		r.serviceReconciler = service.NewReconciler(client)
 	}
 	return r, nil
 }
@@ -154,6 +155,8 @@ func (r *ReplicationReconciler) reconcileReplication(ctx context.Context, req *r
 func (r *ReplicationReconciler) reconcileReplicationInPod(ctx context.Context, req *reconcileRequest, logger logr.Logger, index int, nextReplicationEpoch int) error {
 	pod := statefulset.PodName(req.doltdb.ObjectMeta, index)
 	primaryPodIndex := *req.doltdb.Status.CurrentPrimaryPodIndex
+
+	defer req.clientSet.RemoveClientFromCache(index)
 
 	if primaryPodIndex == index {
 		logger.Info("Configuring primary", "pod", pod)

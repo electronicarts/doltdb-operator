@@ -36,6 +36,16 @@ func (c *ClientSet) Close() error {
 	return nil
 }
 
+// RemoveClientFromCache
+func (c *ClientSet) RemoveClientFromCache(index int) {
+	c.mux.Lock()
+	defer c.mux.Unlock()
+	_, ok := c.clientByIndex[index]
+	if ok {
+		delete(c.clientByIndex, index)
+	}
+}
+
 // ClientForIndex returns a client for the given index, creating it if necessary.
 func (c *ClientSet) ClientForIndex(ctx context.Context, index int, clientOpts ...Opt) (*Client, error) {
 	if err := c.validateIndex(index); err != nil {

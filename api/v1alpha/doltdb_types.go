@@ -143,6 +143,11 @@ type Storage struct {
 	// It defaults to true.
 	// +optional
 	WaitForVolumeResize *bool `json:"waitForVolumeResize,omitempty"`
+
+	// +optional
+	// StatefulSetPersistentVolumeClaimRetentionPolicy describes the policy used for PVCs
+	// created from the StatefulSet VolumeClaimTemplates.
+	RetentionPolicy *appsv1.StatefulSetPersistentVolumeClaimRetentionPolicy `json:"retentionPolicy,omitempty"`
 }
 
 // ClusterType defines the type of the Dolt cluster. It can be either

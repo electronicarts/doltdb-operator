@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
+	"github.com/electronicarts/doltdb-operator/pkg/statefulset"
 	"gopkg.in/yaml.v2"
 )
 
@@ -25,9 +26,9 @@ func GenerateConfigMapData(doltdb *doltv1alpha.DoltDB) (map[string]string, error
 				StandbyRemotes: generateStandbyRemotes(i, doltdb),
 				BootstrapEpoch: 1,
 				BootstrapRole:  getBootstrapRole(i),
-			},
-			RemotesAPI: RemotesAPI{
-				Port: RemotesAPIPort,
+				RemotesAPI: RemotesAPI{
+					Port: RemotesAPIPort,
+				},
 			},
 			Listener: Listener{
 				Host:           "0.0.0.0",
@@ -51,7 +52,7 @@ func generateStandbyRemotes(current int, doltdb *doltv1alpha.DoltDB) []StandbyRe
 		if i != current {
 			remotes = append(remotes, StandbyRemote{
 				Name:              fmt.Sprintf("%s-%d", doltdb.Name, i),
-				RemoteURLTemplate: fmt.Sprintf("http://%s-%d.%s.%s:%d/{database}", doltdb.Name, i, doltdb.InternalServiceKey().Name, doltdb.Namespace, RemotesAPIPort),
+				RemoteURLTemplate: fmt.Sprintf("http://%s:%d/{database}", statefulset.PodShortFQDNWithServiceAndNamespace(doltdb.ObjectMeta, i, doltdb.InternalServiceKey().Name), RemotesAPIPort),
 			})
 		}
 	}

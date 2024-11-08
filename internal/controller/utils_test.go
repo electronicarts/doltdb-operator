@@ -11,6 +11,7 @@ import (
 
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
 	"github.com/electronicarts/doltdb-operator/pkg/builder"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -20,8 +21,8 @@ import (
 )
 
 var (
-	testHighTimeout = 2 * time.Minute
-	testTimeout     = 1 * time.Minute
+	testHighTimeout = 5 * time.Minute
+	testTimeout     = 2 * time.Minute
 	testInterval    = 1 * time.Second
 
 	testDoltKey = types.NamespacedName{
@@ -70,11 +71,16 @@ func testCreateInitialData(ctx context.Context) {
 		},
 		Spec: doltv1alpha.DoltDBSpec{
 			Image:               "dolthub/dolt",
-			EngineVersion:       "1.7.6",
+			EngineVersion:       "1.10.1",
 			Replicas:            3,
 			ReplicationStrategy: doltv1alpha.DirectStandby,
 			Storage: doltv1alpha.Storage{
-				Size: ptr.To(resource.MustParse("1Gi")),
+				Size:             ptr.To(resource.MustParse("1Gi")),
+				StorageClassName: ptr.To("standard-resize"),
+				RetentionPolicy: &appsv1.StatefulSetPersistentVolumeClaimRetentionPolicy{
+					WhenDeleted: appsv1.DeletePersistentVolumeClaimRetentionPolicyType,
+					WhenScaled:  appsv1.DeletePersistentVolumeClaimRetentionPolicyType,
+				},
 			},
 			Resources: &v1.ResourceRequirements{
 				Requests: v1.ResourceList{
@@ -108,10 +114,6 @@ func testCreateInitialData(ctx context.Context) {
 
 func testCleanupInitialData(ctx context.Context) {
 	deleteDoltDB(ctx, testDoltKey)
-	// deleteNamespace(ctx, types.NamespacedName{
-	// 	Name:      testDoltKey.Namespace,
-	// 	Namespace: testDoltKey.Namespace,
-	// })
 }
 
 func expectReady(ctx context.Context, k8sClient client.Client, key types.NamespacedName) {
@@ -151,11 +153,4 @@ func deleteDoltDB(ctx context.Context, key types.NamespacedName) {
 	}
 	Expect(k8sClient.DeleteAllOf(ctx, &corev1.PersistentVolumeClaim{}, opts...)).To(Succeed())
 
-}
-
-func deleteNamespace(ctx context.Context, key types.NamespacedName) {
-	var namespace corev1.Namespace
-	By("Deleting Namespace")
-	Expect(k8sClient.Get(ctx, key, &namespace)).To(Succeed())
-	Expect(k8sClient.Delete(ctx, &namespace)).To(Succeed())
 }

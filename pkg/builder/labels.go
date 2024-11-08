@@ -67,7 +67,7 @@ func (b *LabelsBuilder) WithDoltSelectorLabels(doltdb *doltv1alpha.DoltDB) *Labe
 
 // WithPVCRole sets the PVC role label.
 func (b *LabelsBuilder) WithPVCRole(role string) *LabelsBuilder {
-	b.labels[dolt.VolumeRole] = role
+	b.labels[dolt.VolumeRoleLabel] = role
 	return b
 }
 

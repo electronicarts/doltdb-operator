@@ -24,7 +24,6 @@ import (
 	. "github.com/onsi/gomega"
 	"go.uber.org/zap/zapcore"
 
-	doltctrl "github.com/electronicarts/doltdb-operator/pkg/controller"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -37,7 +36,13 @@ import (
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
 	"github.com/electronicarts/doltdb-operator/pkg/builder"
 	"github.com/electronicarts/doltdb-operator/pkg/conditions"
+	"github.com/electronicarts/doltdb-operator/pkg/controller/configmap"
+	"github.com/electronicarts/doltdb-operator/pkg/controller/rbac"
 	"github.com/electronicarts/doltdb-operator/pkg/controller/replication"
+	"github.com/electronicarts/doltdb-operator/pkg/controller/service"
+	"github.com/electronicarts/doltdb-operator/pkg/controller/statefulset"
+	"github.com/electronicarts/doltdb-operator/pkg/controller/status"
+	"github.com/electronicarts/doltdb-operator/pkg/controller/storage"
 	"github.com/electronicarts/doltdb-operator/pkg/dolt"
 	"github.com/electronicarts/doltdb-operator/pkg/refresolver"
 	ctrlcontroller "sigs.k8s.io/controller-runtime/pkg/controller"
@@ -105,12 +110,14 @@ var _ = BeforeSuite(func() {
 	conditionReady := conditions.NewReady()
 
 	// controllers
-	rbacReconciler := doltctrl.NewRBACReconiler(client, builder)
-	configMapReconciler := doltctrl.NewConfigMapReconciler(client, builder)
-	serviceReconciler := doltctrl.NewServiceReconciler(client)
-	statefulSetReconciler := doltctrl.NewStatefulSetReconciler(client)
+	rbacReconciler := rbac.NewReconciler(client, builder)
+	configMapReconciler := configmap.NewReconciler(client, builder)
+	serviceReconciler := service.NewReconciler(client)
+	statefulSetReconciler := statefulset.NewReconciler(client, refResolver, builder)
+	statusReconciler := status.NewReconciler(client, refResolver)
+	storageReconciler := storage.NewReconciler(client, statefulSetReconciler)
 	replConfig := replication.NewReplicationConfig(client, builder)
-	replicationReconciler, err := replication.NewReplicationReconciler(
+	replicationReconciler, err := replication.NewReconciler(
 		client,
 		replRecorder,
 		builder,
@@ -143,6 +150,8 @@ var _ = BeforeSuite(func() {
 		Builder:               builder,
 		ConditionReady:        conditionReady,
 		RefResolver:           refResolver,
+		StorageReconciler:     storageReconciler,
+		StatusReconciler:      statusReconciler,
 		RBACReconciler:        rbacReconciler,
 		ConfigMapReconciler:   configMapReconciler,
 		ServiceReconciler:     serviceReconciler,

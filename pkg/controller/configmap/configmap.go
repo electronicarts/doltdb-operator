@@ -1,4 +1,4 @@
-package controller
+package configmap
 
 import (
 	"context"
@@ -13,22 +13,22 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// ConfigMapReconciler is responsible for reconciling ConfigMaps.
-type ConfigMapReconciler struct {
+// Reconciler is responsible for reconciling ConfigMaps.
+type Reconciler struct {
 	client.Client
 	Builder *builder.Builder
 }
 
-// NewConfigMapReconciler creates a new instance of ConfigMapReconciler.
-func NewConfigMapReconciler(client client.Client, builder *builder.Builder) *ConfigMapReconciler {
-	return &ConfigMapReconciler{
+// NewReconciler creates a new instance of ConfigMapReconciler.
+func NewReconciler(client client.Client, builder *builder.Builder) *Reconciler {
+	return &Reconciler{
 		Client:  client,
 		Builder: builder,
 	}
 }
 
 // ReconcileRequest contains the information needed to reconcile a ConfigMap.
-type ConfigMapReconcileRequest struct {
+type ReconcileRequest struct {
 	Metadata *metav1.ObjectMeta
 	Owner    *doltv1alpha.DoltDB
 	Key      types.NamespacedName
@@ -37,7 +37,7 @@ type ConfigMapReconcileRequest struct {
 
 // Reconcile ensures that the desired state of the ConfigMap is reflected in the cluster.
 // If the ConfigMap does not exist, it will be created. If it exists, it will be patched with the new data.
-func (r *ConfigMapReconciler) Reconcile(ctx context.Context, req *ConfigMapReconcileRequest) error {
+func (r *Reconciler) Reconcile(ctx context.Context, req *ReconcileRequest) error {
 	opts := builder.ConfigMapOpts{
 		Metadata: req.Metadata,
 		Key:      req.Key,

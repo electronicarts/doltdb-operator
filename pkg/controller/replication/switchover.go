@@ -16,7 +16,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // Removes routing of traffic to the current primary.
@@ -52,7 +51,7 @@ func (r *ReplicationReconciler) reconcileSwitchover(ctx context.Context, req *re
 	toIndex := req.doltdb.Replication().Primary.PodIndex
 	logger := switchoverLogger.WithValues("doltdb", client.ObjectKeyFromObject(req.doltdb), "from-index", fromIndex, "to-index", toIndex)
 
-	dbstates := r.GetDBStates(ctx, req.doltdb, req.clientSet)
+	dbstates := GetDBStates(ctx, req.doltdb, req.clientSet)
 
 	if !shouldReconcileSwitchover(req.doltdb) {
 		return nil
@@ -170,6 +169,7 @@ func (r *ReplicationReconciler) setPrimaryReadOnly(
 	if err != nil {
 		return fmt.Errorf("error getting client for primary: %v", err)
 	}
+	defer clientSet.RemoveClientFromCache(*doltdb.Status.CurrentPrimaryPodIndex)
 
 	logger.Info("Enabling readonly mode in primary")
 	r.recorder.Event(
@@ -206,6 +206,7 @@ func (r *ReplicationReconciler) configureNewPrimary(
 	if err != nil {
 		return fmt.Errorf("error getting new primary SQL client: %v", err)
 	}
+	defer clientSet.RemoveClientFromCache(*newPrimaryIndex)
 
 	logger.Info("Configuring new primary", "pod-index", newPrimaryIndex)
 
@@ -263,20 +264,4 @@ func (r *ReplicationReconciler) currentPrimaryReady(ctx context.Context, doltdb 
 		return nil, false, errors.New("'status.currentPrimaryPodIndex' must be set")
 	}
 	return health.IsDoltDBReplicaHealthy(ctx, r, doltdb, *doltdb.Status.CurrentPrimaryPodIndex)
-}
-
-func (r *ReplicationReconciler) GetDBStates(ctx context.Context, doltdb *doltv1alpha.DoltDB, clientSet *ReplicationClientSet) []dolt.DBState {
-	ret := make([]dolt.DBState, doltdb.Spec.Replicas)
-	for i := 0; i < int(doltdb.Spec.Replicas); i++ {
-		client, err := clientSet.ClientForIndex(ctx, i)
-		if err != nil {
-			continue
-		}
-		ret[i], err = client.GetDBState(ctx)
-		if err != nil {
-			log.FromContext(ctx).V(1).Info("error getting DB state, skipping", "pod", statefulset.PodName(doltdb.ObjectMeta, i), "err", err)
-			continue
-		}
-	}
-	return ret
 }

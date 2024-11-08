@@ -1,4 +1,4 @@
-package controller
+package statefulset
 
 import (
 	"context"
@@ -22,10 +22,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var (
-	ErrSkipReconciliationPhase = errors.New("skipping reconciliation phase")
-)
-
 func shouldReconcileUpdates(doltdb *doltv1alpha.DoltDB) bool {
 	if doltdb.IsResizingStorage() || doltdb.IsSwitchingPrimary() {
 		return false
@@ -33,14 +29,14 @@ func shouldReconcileUpdates(doltdb *doltv1alpha.DoltDB) bool {
 	return true
 }
 
-func (r *DoltDBReconciler) reconcileUpdates(ctx context.Context, doltdb *doltv1alpha.DoltDB) (ctrl.Result, error) {
+func (r *Reconciler) reconcileUpdates(ctx context.Context, doltdb *doltv1alpha.DoltDB) (ctrl.Result, error) {
 	if !shouldReconcileUpdates(doltdb) {
 		return ctrl.Result{}, nil
 	}
 	doltdbKey := client.ObjectKeyFromObject(doltdb)
 	logger := log.FromContext(ctx).WithName("update")
 
-	stsUpdateRevision, err := r.getStatefulSetRevision(ctx, doltdb)
+	stsUpdateRevision, err := GetRevision(ctx, r.Client, doltdb)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -93,7 +89,7 @@ func (r *DoltDBReconciler) reconcileUpdates(ctx context.Context, doltdb *doltv1a
 	return ctrl.Result{}, nil
 }
 
-func (r *DoltDBReconciler) waitForReadyStatus(ctx context.Context, doltdb *doltv1alpha.DoltDB, logger logr.Logger) (ctrl.Result, error) {
+func (r *Reconciler) waitForReadyStatus(ctx context.Context, doltdb *doltv1alpha.DoltDB, logger logr.Logger) (ctrl.Result, error) {
 	var sts appsv1.StatefulSet
 	if err := r.Get(ctx, client.ObjectKeyFromObject(doltdb), &sts); err != nil {
 		return ctrl.Result{}, err
@@ -106,7 +102,7 @@ func (r *DoltDBReconciler) waitForReadyStatus(ctx context.Context, doltdb *doltv
 	return ctrl.Result{}, nil
 }
 
-func (r *DoltDBReconciler) waitForConfiguredReplication(doltdb *doltv1alpha.DoltDB, logger logr.Logger) (ctrl.Result, error) {
+func (r *Reconciler) waitForConfiguredReplication(doltdb *doltv1alpha.DoltDB, logger logr.Logger) (ctrl.Result, error) {
 	if !doltdb.Replication().Enabled {
 		return ctrl.Result{}, nil
 	}
@@ -120,7 +116,7 @@ func (r *DoltDBReconciler) waitForConfiguredReplication(doltdb *doltv1alpha.Dolt
 	return ctrl.Result{}, nil
 }
 
-func (r *DoltDBReconciler) updatePod(ctx context.Context, doltdbKey types.NamespacedName, pod *corev1.Pod, updateRevision string,
+func (r *Reconciler) updatePod(ctx context.Context, doltdbKey types.NamespacedName, pod *corev1.Pod, updateRevision string,
 	logger logr.Logger) error {
 	if err := r.Delete(ctx, pod); err != nil {
 		return fmt.Errorf("error deleting Pod '%s': %v", pod.Name, err)
@@ -134,7 +130,7 @@ func (r *DoltDBReconciler) updatePod(ctx context.Context, doltdbKey types.Namesp
 	return nil
 }
 
-func (r *DoltDBReconciler) pollUntilPodUpdated(ctx context.Context, doltdbKey, podKey types.NamespacedName, updateRevision string,
+func (r *Reconciler) pollUntilPodUpdated(ctx context.Context, doltdbKey, podKey types.NamespacedName, updateRevision string,
 	logger logr.Logger) error {
 	return wait.PollWithDoltDB(ctx, doltdbKey, r.Client, logger, func(ctx context.Context) error {
 		var pod corev1.Pod
@@ -166,7 +162,7 @@ func (p *podRoleSet) getStalePodNames(updateRevision string) []string {
 	return podNames
 }
 
-func (r *DoltDBReconciler) getPodsByRole(ctx context.Context, doltdb *doltv1alpha.DoltDB, podsByRole *podRoleSet,
+func (r *Reconciler) getPodsByRole(ctx context.Context, doltdb *doltv1alpha.DoltDB, podsByRole *podRoleSet,
 	logger logr.Logger) (ctrl.Result, error) {
 	currentPrimary := ptr.Deref(doltdb.Status.CurrentPrimary, "")
 	if currentPrimary == "" {

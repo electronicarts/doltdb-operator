@@ -1,4 +1,4 @@
-package controller
+package service
 
 import (
 	"context"
@@ -9,20 +9,20 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type ServiceReconciler struct {
+type Reconciler struct {
 	client.Client
 }
 
-// NewServiceReconciler creates a new ServiceReconciler with the given client.
-func NewServiceReconciler(client client.Client) *ServiceReconciler {
-	return &ServiceReconciler{
+// NewReconciler creates a new ServiceReconciler with the given client.
+func NewReconciler(client client.Client) *Reconciler {
+	return &Reconciler{
 		Client: client,
 	}
 }
 
 // Reconcile ensures that the desired state of the Service is reflected in the cluster.
 // If the Service does not exist, it creates it. If it exists, it updates it to match the desired state.
-func (r *ServiceReconciler) Reconcile(ctx context.Context, desiredSvc *corev1.Service) error {
+func (r *Reconciler) Reconcile(ctx context.Context, desiredSvc *corev1.Service) error {
 	key := client.ObjectKeyFromObject(desiredSvc)
 	var existingSvc corev1.Service
 	if err := r.Get(ctx, key, &existingSvc); err != nil {

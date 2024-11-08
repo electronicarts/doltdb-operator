@@ -1,9 +1,8 @@
 package dolt
 
 const (
-	RoleLabel  = "k8s.dolthub.com/cluster-role"
-	VolumeRole = "pvc.k8s.dolthub.com/role"
-
+	RoleLabel             = "k8s.dolthub.com/cluster-role"
+	VolumeRoleLabel       = "pvc.k8s.dolthub.com/role"
 	Annotation            = "k8s.dolthub.com/doltdb"
 	ReplicationAnnotation = "k8s.dolthub.com/replication"
 )

@@ -17,7 +17,7 @@ cluster-ctx: ## Sets cluster context.
 
 .PHONY: test-int
 test-int: ## Run tests.
-	go test ./internal/controller/... -v -ginkgo.v --coverprofile=cover.out --timeout 5m 
+	go test ./internal/controller/... -v -ginkgo.v --coverprofile=cover.out --timeout 10m 
 
 .PHONY: test
 test: ## Run tests.
@@ -50,5 +50,5 @@ lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
 tiltdev: cluster-ctx
 	tilt up
 
-tiltci: cluster cluster-ctx
+tiltci: cluster-ctx
 	tilt ci

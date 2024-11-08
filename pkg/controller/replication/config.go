@@ -14,6 +14,7 @@ import (
 	"github.com/electronicarts/doltdb-operator/pkg/statefulset"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type ReplicationConfig struct {
@@ -127,4 +128,20 @@ func (r *ReplicationConfig) GetNextPrimary(
 	}
 
 	return nextPrimary, nil
+}
+
+func GetDBStates(ctx context.Context, doltdb *doltv1alpha.DoltDB, clientSet *ReplicationClientSet) []dolt.DBState {
+	ret := make([]dolt.DBState, doltdb.Spec.Replicas)
+	for i := 0; i < int(doltdb.Spec.Replicas); i++ {
+		client, err := clientSet.ClientForIndex(ctx, i)
+		if err != nil {
+			continue
+		}
+		ret[i], err = client.GetDBState(ctx)
+		if err != nil {
+			log.FromContext(ctx).V(1).Error(err, "error getting DB state, skipping", "pod", statefulset.PodName(doltdb.ObjectMeta, i))
+			continue
+		}
+	}
+	return ret
 }

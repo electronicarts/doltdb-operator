@@ -15,10 +15,9 @@ const (
 
 // Config represents the structure of the configuration data.
 type Config struct {
-	LogLevel   string     `yaml:"log_level"`
-	Cluster    Cluster    `yaml:"cluster"`
-	RemotesAPI RemotesAPI `yaml:"remotesapi"`
-	Listener   Listener   `yaml:"listener"`
+	LogLevel string   `yaml:"log_level"`
+	Cluster  Cluster  `yaml:"cluster"`
+	Listener Listener `yaml:"listener"`
 }
 
 // Cluster represents the cluster section of the configuration.
@@ -26,6 +25,7 @@ type Cluster struct {
 	StandbyRemotes []StandbyRemote `yaml:"standby_remotes"`
 	BootstrapEpoch int32           `yaml:"bootstrap_epoch"`
 	BootstrapRole  string          `yaml:"bootstrap_role"`
+	RemotesAPI     RemotesAPI      `yaml:"remotesapi"`
 }
 
 // StandbyRemote represents a standby remote in the cluster configuration.

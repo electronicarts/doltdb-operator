@@ -77,11 +77,20 @@ func (r *PodReadinessController) ReconcilePodNotReady(ctx context.Context, pod c
 	// 		return fmt.Errorf("error getting next primary: %v", err)
 	// 	}
 	// }
+	// clientSet := NewReplicationClientSet(doltdb, r.refResolver)
+	// defer clientSet.close()
 
+	// dbstates := GetDBStates(ctx, doltdb, clientSet)
+
+	// var toIndex *int
+	// toIndex = ptr.To(dolt.PickNextPrimary(dbstates))
+
+	// if toIndex == fromIndex || *toIndex < 0 {
 	toIndex, err := health.HealthyDoltDBReplica(ctx, r, doltdb)
 	if err != nil {
 		return fmt.Errorf("error getting healthy Dolt replica: %v", err)
 	}
+	// }
 
 	var errBundle *multierror.Error
 	err = r.patch(ctx, doltdb, func(doltdb *doltv1alpha.DoltDB) {

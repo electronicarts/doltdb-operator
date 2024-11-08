@@ -14,9 +14,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -344,6 +346,100 @@ var _ = Describe("DoltDB Controller", func() {
 				}
 				return svc.Spec.Selector["statefulset.kubernetes.io/pod-name"] == statefulset.PodName(testDoltDB.ObjectMeta, podIndex)
 			}, testTimeout, testInterval).Should(BeTrue())
+		})
+	})
+
+	Context("Volume Resize", func() {
+		It("should resize storage", func() {
+			var testDoltDB doltv1alpha.DoltDB
+
+			By("Getting DoltDB")
+			Expect(k8sClient.Get(ctx, testDoltKey, &testDoltDB)).To(Succeed())
+
+			By("Expecting DoltDB to be ready eventually")
+			Eventually(func() bool {
+				if err := k8sClient.Get(ctx, testDoltKey, &testDoltDB); err != nil {
+					return false
+				}
+				return testDoltDB.IsReady()
+			}, testHighTimeout, testInterval).Should(BeTrue())
+
+			By("Updating storage")
+			testDoltDB.Spec.Storage.Size = ptr.To(resource.MustParse("10Gi"))
+			Expect(k8sClient.Update(ctx, &testDoltDB)).To(Succeed())
+
+			By("Expecting DoltDB to have resized storage eventually")
+			Eventually(func() bool {
+				if err := k8sClient.Get(ctx, testDoltKey, &testDoltDB); err != nil {
+					return false
+				}
+				return testDoltDB.IsReady() && meta.IsStatusConditionTrue(testDoltDB.Status.Conditions, doltv1alpha.ConditionTypeStorageResized)
+			}, testHighTimeout, testInterval).Should(BeTrue())
+
+			By("Expecting StatefulSet storage to have been resized")
+			var sts appsv1.StatefulSet
+			Expect(k8sClient.Get(ctx, testDoltKey, &sts)).To(Succeed())
+			testDoltDBSize := testDoltDB.Spec.Storage.Size
+			stsSize := statefulset.GetStorageSize(&sts, builder.DoltDataVolume)
+			Expect(testDoltDBSize).NotTo(BeNil())
+			Expect(stsSize).NotTo(BeNil())
+			Expect(testDoltDBSize.Cmp(*stsSize)).To(Equal(0))
+
+			By("Expecting PVCs to have been resized")
+			pvcList := corev1.PersistentVolumeClaimList{}
+			listOpts := client.ListOptions{
+				LabelSelector: klabels.SelectorFromSet(
+					builder.NewLabelsBuilder().
+						WithDoltSelectorLabels(&testDoltDB).
+						WithPVCRole(builder.DoltDataVolume).
+						Build(),
+				),
+				Namespace: testDoltDB.GetNamespace(),
+			}
+			Expect(k8sClient.List(ctx, &pvcList, &listOpts)).To(Succeed())
+			for _, p := range pvcList.Items {
+				pvcSize := p.Spec.Resources.Requests[corev1.ResourceStorage]
+				Expect(testDoltDBSize.Cmp(pvcSize)).To(Equal(0))
+			}
+		})
+	})
+
+	Context("Updates", func() {
+		It("should update", func() {
+			var testDoltDB doltv1alpha.DoltDB
+
+			By("Getting DoltDB")
+			Expect(k8sClient.Get(ctx, testDoltKey, &testDoltDB)).To(Succeed())
+
+			By("Expecting DoltDB to be ready eventually")
+			Eventually(func() bool {
+				if err := k8sClient.Get(ctx, testDoltKey, &testDoltDB); err != nil {
+					return false
+				}
+				return testDoltDB.IsReady()
+			}, testHighTimeout, testInterval).Should(BeTrue())
+
+			By("Updating DoltDB compute resources")
+			Eventually(func() bool {
+				if err := k8sClient.Get(ctx, testDoltKey, &testDoltDB); err != nil {
+					return false
+				}
+
+				testDoltDB.Spec.Resources.Requests = corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("100m"),
+					corev1.ResourceMemory: resource.MustParse("256Mi"),
+				}
+
+				return k8sClient.Update(ctx, &testDoltDB) == nil
+			}, testTimeout, testInterval).Should(BeTrue())
+
+			By("Expecting DoltDB to be updated eventually")
+			Eventually(func() bool {
+				if err := k8sClient.Get(ctx, testDoltKey, &testDoltDB); err != nil {
+					return false
+				}
+				return testDoltDB.IsReady() && meta.IsStatusConditionTrue(testDoltDB.Status.Conditions, doltv1alpha.ConditionTypeUpdated)
+			}, testHighTimeout, testInterval).Should(BeTrue())
 		})
 	})
 })

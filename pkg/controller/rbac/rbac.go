@@ -1,4 +1,4 @@
-package controller
+package rbac
 
 import (
 	"context"
@@ -14,22 +14,22 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// RBACReconciler is responsible for reconciling RBAC resources.
-type RBACReconciler struct {
+// Reconciler is responsible for reconciling RBAC resources.
+type Reconciler struct {
 	client.Client
 	builder *builder.Builder
 }
 
-// NewRBACReconiler creates a new RBACReconciler.
-func NewRBACReconiler(client client.Client, builder *builder.Builder) *RBACReconciler {
-	return &RBACReconciler{
+// NewReconciler creates a new RBACReconciler.
+func NewReconciler(client client.Client, builder *builder.Builder) *Reconciler {
+	return &Reconciler{
 		Client:  client,
 		builder: builder,
 	}
 }
 
 // ReconcileServiceAccount ensures that a ServiceAccount exists for the given DoltDB.
-func (r *RBACReconciler) ReconcileServiceAccount(ctx context.Context, key types.NamespacedName, doltdb *doltv1alpha.DoltDB) (*corev1.ServiceAccount, error) {
+func (r *Reconciler) ReconcileServiceAccount(ctx context.Context, key types.NamespacedName, doltdb *doltv1alpha.DoltDB) (*corev1.ServiceAccount, error) {
 	var existingSA corev1.ServiceAccount
 	err := r.Get(ctx, key, &existingSA)
 	if err == nil {
@@ -50,7 +50,7 @@ func (r *RBACReconciler) ReconcileServiceAccount(ctx context.Context, key types.
 }
 
 // ReconcileDoltRBAC ensures that all necessary RBAC resources exist for the given DoltDB.
-func (r *RBACReconciler) ReconcileDoltRBAC(ctx context.Context, doltdb *doltv1alpha.DoltDB) error {
+func (r *Reconciler) ReconcileDoltRBAC(ctx context.Context, doltdb *doltv1alpha.DoltDB) error {
 	key := doltdb.ServiceAccountKey()
 	sa, err := r.ReconcileServiceAccount(ctx, key, doltdb)
 	if err != nil {
@@ -88,7 +88,7 @@ func (r *RBACReconciler) ReconcileDoltRBAC(ctx context.Context, doltdb *doltv1al
 }
 
 // reconcileRole ensures that a Role exists for the given DoltDB.
-func (r *RBACReconciler) reconcileRole(ctx context.Context, key types.NamespacedName, doltdb *doltv1alpha.DoltDB) (*rbacv1.Role, error) {
+func (r *Reconciler) reconcileRole(ctx context.Context, key types.NamespacedName, doltdb *doltv1alpha.DoltDB) (*rbacv1.Role, error) {
 	var existingRole rbacv1.Role
 	err := r.Get(ctx, key, &existingRole)
 	if err == nil {
@@ -134,7 +134,7 @@ func (r *RBACReconciler) reconcileRole(ctx context.Context, key types.Namespaced
 }
 
 // reconcileRoleBinding ensures that a RoleBinding exists for the given DoltDB.
-func (r *RBACReconciler) reconcileRoleBinding(ctx context.Context, key types.NamespacedName, doltdb *doltv1alpha.DoltDB, sa *corev1.ServiceAccount, roleRef rbacv1.RoleRef) error {
+func (r *Reconciler) reconcileRoleBinding(ctx context.Context, key types.NamespacedName, doltdb *doltv1alpha.DoltDB, sa *corev1.ServiceAccount, roleRef rbacv1.RoleRef) error {
 	var existingRB rbacv1.RoleBinding
 	err := r.Get(ctx, key, &existingRB)
 	if err == nil {
@@ -155,7 +155,7 @@ func (r *RBACReconciler) reconcileRoleBinding(ctx context.Context, key types.Nam
 }
 
 // reconcileClusterRoleBinding ensures that a ClusterRoleBinding exists for the given DoltDB.
-func (r *RBACReconciler) reconcileClusterRoleBinding(ctx context.Context, key types.NamespacedName, doltdb *doltv1alpha.DoltDB, sa *corev1.ServiceAccount, roleRef rbacv1.RoleRef) error {
+func (r *Reconciler) reconcileClusterRoleBinding(ctx context.Context, key types.NamespacedName, doltdb *doltv1alpha.DoltDB, sa *corev1.ServiceAccount, roleRef rbacv1.RoleRef) error {
 	var existingCRB rbacv1.ClusterRoleBinding
 	err := r.Get(ctx, key, &existingCRB)
 	if err == nil {

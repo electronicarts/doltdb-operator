@@ -38,11 +38,11 @@ func (b *Builder) BuildDoltStatefulSet(key types.NamespacedName, doltdb *doltv1a
 	statefulSet := &appsv1.StatefulSet{
 		ObjectMeta: objMeta,
 		Spec: appsv1.StatefulSetSpec{
-			// PersistentVolumeClaimRetentionPolicy: ,
+			PersistentVolumeClaimRetentionPolicy: doltPVCRetentionPolicy(doltdb),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: matchLabels,
 			},
-			ServiceName: "dolt-internal",
+			ServiceName: doltdb.InternalServiceKey().Name,
 			UpdateStrategy: appsv1.StatefulSetUpdateStrategy{
 				Type: appsv1.OnDeleteStatefulSetStrategyType,
 			},
@@ -63,6 +63,7 @@ func (b *Builder) BuildDoltStatefulSet(key types.NamespacedName, doltdb *doltv1a
 func doltVolumeClaimTemplates(metadata metav1.ObjectMeta, doltdb *doltv1alpha.DoltDB) []corev1.PersistentVolumeClaim {
 	labels := NewLabelsBuilder().
 		WithDoltSelectorLabels(doltdb).
+		WithPVCRole(DoltDataVolume).
 		Build()
 
 	objMeta :=
@@ -94,4 +95,15 @@ func doltVolumeClaimTemplates(metadata metav1.ObjectMeta, doltdb *doltv1alpha.Do
 	}
 
 	return []corev1.PersistentVolumeClaim{pvc}
+}
+
+func doltPVCRetentionPolicy(doltdb *doltv1alpha.DoltDB) *appsv1.StatefulSetPersistentVolumeClaimRetentionPolicy {
+	if doltdb.Spec.Storage.RetentionPolicy != nil {
+		return doltdb.Spec.Storage.RetentionPolicy
+	}
+
+	return &appsv1.StatefulSetPersistentVolumeClaimRetentionPolicy{
+		WhenDeleted: appsv1.RetainPersistentVolumeClaimRetentionPolicyType,
+		WhenScaled:  appsv1.RetainPersistentVolumeClaimRetentionPolicyType,
+	}
 }

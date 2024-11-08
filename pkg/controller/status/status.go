@@ -1,4 +1,4 @@
-package controller
+package status
 
 import (
 	"context"
@@ -8,9 +8,11 @@ import (
 	"github.com/electronicarts/doltdb-operator/pkg/builder"
 	"github.com/electronicarts/doltdb-operator/pkg/conditions"
 	"github.com/electronicarts/doltdb-operator/pkg/controller/replication"
+	stsctrl "github.com/electronicarts/doltdb-operator/pkg/controller/statefulset"
 	"github.com/electronicarts/doltdb-operator/pkg/dolt"
 	"github.com/electronicarts/doltdb-operator/pkg/health"
 	podpkg "github.com/electronicarts/doltdb-operator/pkg/pod"
+	"github.com/electronicarts/doltdb-operator/pkg/refresolver"
 	"github.com/electronicarts/doltdb-operator/pkg/statefulset"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -21,22 +23,33 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-type patcherDoltDB func(*doltv1alpha.DoltDBStatus) error
+type Reconciler struct {
+	client.Client
+	refResolver *refresolver.RefResolver
+}
 
-func (r *DoltDBReconciler) reconcileStatus(ctx context.Context, doltdb *doltv1alpha.DoltDB) (ctrl.Result, error) {
+// NewReconciler creates a new ServiceReconciler with the given client.
+func NewReconciler(client client.Client, refResolver *refresolver.RefResolver) *Reconciler {
+	return &Reconciler{
+		Client:      client,
+		refResolver: refResolver,
+	}
+}
+
+func (r *Reconciler) Reconcile(ctx context.Context, doltdb *doltv1alpha.DoltDB) (ctrl.Result, error) {
 	var sts appsv1.StatefulSet
 	if err := r.Get(ctx, client.ObjectKeyFromObject(doltdb), &sts); err != nil {
 		log.FromContext(ctx).V(1).Info("error getting StatefulSet", "err", err)
 	}
 
-	clientSet := replication.NewReplicationClientSet(doltdb, r.RefResolver)
+	clientSet := replication.NewReplicationClientSet(doltdb, r.refResolver)
 	defer clientSet.Close()
 
-	dbstates := r.ReplicationReconciler.GetDBStates(ctx, doltdb, clientSet)
+	dbstates := replication.GetDBStates(ctx, doltdb, clientSet)
 
 	replicationStatus, highestEpoch := r.getReplicationStatusAndEpoch(ctx, doltdb, dbstates)
 
-	return ctrl.Result{}, r.patchStatus(ctx, doltdb, func(status *doltv1alpha.DoltDBStatus) error {
+	return ctrl.Result{}, PatchStatus(ctx, r.Client, doltdb, func(status *doltv1alpha.DoltDBStatus) error {
 		status.Replicas = sts.Status.ReadyReplicas
 		defaultPrimary(doltdb)
 
@@ -60,25 +73,8 @@ func (r *DoltDBReconciler) reconcileStatus(ctx context.Context, doltdb *doltv1al
 	})
 }
 
-func (r *DoltDBReconciler) getStatefulSetRevision(ctx context.Context, doltdb *doltv1alpha.DoltDB) (string, error) {
-	var sts appsv1.StatefulSet
-	if err := r.Get(ctx, client.ObjectKeyFromObject(doltdb), &sts); err != nil {
-		return "", err
-	}
-	return sts.Status.UpdateRevision, nil
-}
-
-func (r *DoltDBReconciler) patchStatus(ctx context.Context, doltdb *doltv1alpha.DoltDB,
-	patcher patcherDoltDB) error {
-	patch := client.MergeFrom(doltdb.DeepCopy())
-	if err := patcher(&doltdb.Status); err != nil {
-		return err
-	}
-	return r.Status().Patch(ctx, doltdb, patch)
-}
-
-func (r *DoltDBReconciler) setUpdatedCondition(ctx context.Context, doltdb *doltv1alpha.DoltDB) error {
-	stsUpdateRevision, err := r.getStatefulSetRevision(ctx, doltdb)
+func (r *Reconciler) setUpdatedCondition(ctx context.Context, doltdb *doltv1alpha.DoltDB) error {
+	stsUpdateRevision, err := stsctrl.GetRevision(ctx, r.Client, doltdb)
 	if err != nil {
 		return err
 	}
@@ -121,7 +117,7 @@ func (r *DoltDBReconciler) setUpdatedCondition(ctx context.Context, doltdb *dolt
 	return nil
 }
 
-func (r *DoltDBReconciler) getReplicationStatusAndEpoch(ctx context.Context,
+func (r *Reconciler) getReplicationStatusAndEpoch(ctx context.Context,
 	doltdb *doltv1alpha.DoltDB, dbstates []dolt.DBState) (doltv1alpha.ReplicationStatus, int) {
 	if !doltdb.Replication().Enabled {
 		return nil, -1
