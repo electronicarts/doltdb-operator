@@ -17,7 +17,25 @@ This operator supports
 - go version v1.22.0+
 - docker version 17.03+.
 - kubectl version v1.11.3+.
+- kind versio 0.24+.
+- tiltdev version 0.33+.
 - Access to a Kubernetes v1.11.3+ cluster.
+
+### Local development
+**Create k8s cluster:**
+```sh
+make cluster cluster-ctx
+```
+
+**Run integration tests in interactive mode:**
+```sh
+make tiltdev
+```
+
+**Run integration tests in CI mode:**
+```sh
+make tiltci
+```
 
 ### To Deploy on the cluster
 **Build and push your image to the location specified by `IMG`:**
