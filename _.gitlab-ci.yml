@@ -9,14 +9,12 @@ include:
 stages:
   - test
 
+#TODO: Fix CI pipeline
 test:
   stage: test
   extends: .dind
   before_script:
-    - apk add --no-cache curl bash make git
-    - curl -LO https://golang.org/dl/go1.23.linux-amd64.tar.gz
-    - tar -C /usr/local -xzf go1.23.linux-amd64.tar.gz
-    - export PATH=$PATH:/usr/local/go/bin
+    - apk add --no-cache curl bash make git go
     - make kind
     - make tilt
     - make kubectl
