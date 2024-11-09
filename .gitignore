@@ -25,3 +25,5 @@ go.work
 *.swp
 *.swo
 *~
+tilt_git/
+vendor

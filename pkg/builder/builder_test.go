@@ -33,7 +33,7 @@ func assertObjectMeta(t *testing.T, objMeta *metav1.ObjectMeta, wantLabels, want
 	}
 }
 
-func assertMeta(t *testing.T, meta *doltv1alpha.DoltCluster, wantLabels, wantAnnotations map[string]string) {
+func assertMeta(t *testing.T, meta *doltv1alpha.DoltDB, wantLabels, wantAnnotations map[string]string) {
 	if meta == nil {
 		t.Fatal("expecting metadata to not be nil")
 	}

@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -33,8 +34,13 @@ import (
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
 	"github.com/electronicarts/doltdb-operator/pkg/builder"
 	"github.com/electronicarts/doltdb-operator/pkg/conditions"
-	"github.com/electronicarts/doltdb-operator/pkg/controller"
+	"github.com/electronicarts/doltdb-operator/pkg/controller/configmap"
+	"github.com/electronicarts/doltdb-operator/pkg/controller/rbac"
 	"github.com/electronicarts/doltdb-operator/pkg/controller/replication"
+	"github.com/electronicarts/doltdb-operator/pkg/controller/service"
+	stsctrl "github.com/electronicarts/doltdb-operator/pkg/controller/statefulset"
+	"github.com/electronicarts/doltdb-operator/pkg/controller/status"
+	"github.com/electronicarts/doltdb-operator/pkg/controller/storage"
 	"github.com/electronicarts/doltdb-operator/pkg/dolt"
 	doltpod "github.com/electronicarts/doltdb-operator/pkg/pod"
 	"github.com/electronicarts/doltdb-operator/pkg/refresolver"
@@ -46,7 +52,7 @@ import (
 	k8sctrl "sigs.k8s.io/controller-runtime/pkg/controller"
 )
 
-// DoltDBReconciler reconciles a DoltCluster object
+// DoltDBReconciler reconciles a DoltDB object
 type DoltDBReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
@@ -55,21 +61,23 @@ type DoltDBReconciler struct {
 	ConditionReady *conditions.Ready
 	RefResolver    *refresolver.RefResolver
 
-	RBACReconciler        *controller.RBACReconciler
-	ConfigMapReconciler   *controller.ConfigMapReconciler
-	ServiceReconciler     *controller.ServiceReconciler
-	StatefulSetReconciler *controller.StatefulSetReconciler
+	RBACReconciler        *rbac.Reconciler
+	ConfigMapReconciler   *configmap.Reconciler
+	ServiceReconciler     *service.Reconciler
+	StatefulSetReconciler *stsctrl.Reconciler
+	StorageReconciler     *storage.Reconciler
+	StatusReconciler      *status.Reconciler
 	ReplicationReconciler *replication.ReplicationReconciler
 }
 
-type reconcilePhaseDoltCluster struct {
+type reconcilePhaseDoltDB struct {
 	Name      string
-	Reconcile func(context.Context, *doltv1alpha.DoltCluster) (ctrl.Result, error)
+	Reconcile func(context.Context, *doltv1alpha.DoltDB) (ctrl.Result, error)
 }
 
-// +kubebuilder:rbac:groups=k8s.dolthub.com,resources=doltclusters,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=k8s.dolthub.com,resources=doltclusters/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=k8s.dolthub.com,resources=doltclusters/finalizers,verbs=update
+// +kubebuilder:rbac:groups=k8s.dolthub.com,resources=doltdbs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=k8s.dolthub.com,resources=doltdbs/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=k8s.dolthub.com,resources=doltdbs/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;patch;delete
@@ -92,17 +100,17 @@ type reconcilePhaseDoltCluster struct {
 func (r *DoltDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
 
-	// Fetch DoltCluster CRD in current namespace
-	var doltCluster doltv1alpha.DoltCluster
-	if err := r.Get(ctx, req.NamespacedName, &doltCluster); err != nil {
-		log.Error(err, "unable to fetch DoltCluster")
+	// Fetch DoltDB CRD in current namespace
+	var doltdb doltv1alpha.DoltDB
+	if err := r.Get(ctx, req.NamespacedName, &doltdb); err != nil {
+		log.Error(err, "unable to fetch DoltDB")
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	phases := []reconcilePhaseDoltCluster{
+	phases := []reconcilePhaseDoltDB{
 		{
 			Name:      "Status",
-			Reconcile: r.reconcileStatus,
+			Reconcile: r.StatusReconciler.Reconcile,
 		},
 		{
 			Name:      "ConfigMap",
@@ -114,11 +122,11 @@ func (r *DoltDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		},
 		{
 			Name:      "Storage",
-			Reconcile: r.reconcileStorage,
+			Reconcile: r.StorageReconciler.Reconcile,
 		},
 		{
 			Name:      "StatefulSet",
-			Reconcile: r.reconcileStatefulSet,
+			Reconcile: r.StatefulSetReconciler.Reconcile,
 		},
 		{
 			Name:      "PodDisruptionBudget",
@@ -138,9 +146,9 @@ func (r *DoltDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		},
 	}
 	for _, p := range phases {
-		result, err := p.Reconcile(ctx, &doltCluster)
+		result, err := p.Reconcile(ctx, &doltdb)
 		if err != nil {
-			if apierrors.IsNotFound(err) {
+			if shouldSkipPhase(err) {
 				continue
 			}
 
@@ -148,7 +156,7 @@ func (r *DoltDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			errBundle = multierror.Append(errBundle, err)
 
 			msg := fmt.Sprintf("Error reconciling %s: %v", p.Name, err)
-			patchErr := r.patchStatus(ctx, &doltCluster, func(s *doltv1alpha.DoltClusterStatus) error {
+			patchErr := status.PatchStatus(ctx, r.Client, &doltdb, func(s *doltv1alpha.DoltDBStatus) error {
 				patcher := r.ConditionReady.PatcherFailed(msg)
 				patcher(s)
 				return nil
@@ -171,7 +179,7 @@ func (r *DoltDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 // SetupWithManager sets up the controller with the Manager.
 func (r *DoltDBReconciler) SetupWithManager(mgr ctrl.Manager, opts k8sctrl.Options) error {
 	builder := ctrl.NewControllerManagedBy(mgr).
-		For(&doltv1alpha.DoltCluster{}).
+		For(&doltv1alpha.DoltDB{}).
 		Owns(&corev1.ConfigMap{}).
 		Owns(&corev1.Service{}).
 		Owns(&corev1.Event{}).
@@ -188,7 +196,17 @@ func (r *DoltDBReconciler) SetupWithManager(mgr ctrl.Manager, opts k8sctrl.Optio
 	return builder.Complete(r)
 }
 
-func (r *DoltDBReconciler) reconcileConfigMap(ctx context.Context, doltdb *doltv1alpha.DoltCluster) (ctrl.Result, error) {
+func shouldSkipPhase(err error) bool {
+	if apierrors.IsNotFound(err) {
+		return true
+	}
+	if errors.Is(err, stsctrl.ErrSkipReconciliationPhase) {
+		return true
+	}
+	return false
+}
+
+func (r *DoltDBReconciler) reconcileConfigMap(ctx context.Context, doltdb *doltv1alpha.DoltDB) (ctrl.Result, error) {
 	defaultConfigMapKeyRef := doltdb.DefaultConfigMapKey()
 
 	config, err := dolt.GenerateConfigMapData(doltdb)
@@ -196,7 +214,7 @@ func (r *DoltDBReconciler) reconcileConfigMap(ctx context.Context, doltdb *doltv
 		return ctrl.Result{}, fmt.Errorf("error generating DoltDB ConfigMap data: %v", err)
 	}
 
-	req := controller.ConfigMapReconcileRequest{
+	req := configmap.ReconcileRequest{
 		Metadata: &doltdb.ObjectMeta,
 		Owner:    doltdb,
 		Key:      defaultConfigMapKeyRef,
@@ -209,68 +227,56 @@ func (r *DoltDBReconciler) reconcileConfigMap(ctx context.Context, doltdb *doltv
 	return ctrl.Result{}, nil
 }
 
-func (r *DoltDBReconciler) reconcileService(ctx context.Context, doltdb *doltv1alpha.DoltCluster) (ctrl.Result, error) {
-	if err := r.reconcileInternalService(ctx, doltdb); err != nil {
+func (r *DoltDBReconciler) reconcileService(ctx context.Context, doltdb *doltv1alpha.DoltDB) (ctrl.Result, error) {
+	if result, err := r.reconcileInternalService(ctx, doltdb); !result.IsZero() || err != nil {
 		return ctrl.Result{}, fmt.Errorf("error reconciling internal Service: %v", err)
 	}
 
-	// if doltdb.Replication().Enabled {
-	if err := r.reconcilePrimarylService(ctx, doltdb); err != nil {
-		return ctrl.Result{}, fmt.Errorf("error reconciling primary Service: %v", err)
+	if doltdb.Replication().Enabled {
+		if result, err := r.reconcilePrimaryService(ctx, doltdb); !result.IsZero() || err != nil {
+			return ctrl.Result{}, fmt.Errorf("error reconciling primary Service: %v", err)
+		}
+		if result, err := r.reconcileReaderService(ctx, doltdb); !result.IsZero() || err != nil {
+			return ctrl.Result{}, fmt.Errorf("error reconciling reader Service: %v", err)
+		}
 	}
-	if err := r.reconcileReaderService(ctx, doltdb); err != nil {
-		return ctrl.Result{}, fmt.Errorf("error reconciling reader Service: %v", err)
-	}
-	// }
+
 	return ctrl.Result{}, nil
 }
 
-func (r *DoltDBReconciler) reconcileInternalService(ctx context.Context, doltdb *doltv1alpha.DoltCluster) error {
+func (r *DoltDBReconciler) reconcileInternalService(ctx context.Context, doltdb *doltv1alpha.DoltDB) (ctrl.Result, error) {
 	internalHeadlessSvc, err := r.Builder.BuildDoltInternalService(doltdb)
 	if err != nil {
-		return fmt.Errorf("error building internal Service: %v", err)
+		return ctrl.Result{}, fmt.Errorf("error building internal Service: %v", err)
 	}
 
-	return r.ServiceReconciler.Reconcile(ctx, internalHeadlessSvc)
+	return ctrl.Result{}, r.ServiceReconciler.Reconcile(ctx, internalHeadlessSvc)
 }
 
-func (r *DoltDBReconciler) reconcilePrimarylService(ctx context.Context, doltdb *doltv1alpha.DoltCluster) error {
+func (r *DoltDBReconciler) reconcilePrimaryService(ctx context.Context, doltdb *doltv1alpha.DoltDB) (ctrl.Result, error) {
+	if doltdb.Status.CurrentPrimaryPodIndex == nil {
+		log.FromContext(ctx).V(1).Info("'status.currentPrimaryPodIndex' must be set")
+		return ctrl.Result{RequeueAfter: 1 * time.Second}, nil
+	}
+
 	primarySvc, err := r.Builder.BuildDoltPrimaryService(doltdb)
 	if err != nil {
-		return fmt.Errorf("error building primary Service: %v", err)
+		return ctrl.Result{}, fmt.Errorf("error building primary Service: %v", err)
 	}
 
-	return r.ServiceReconciler.Reconcile(ctx, primarySvc)
+	return ctrl.Result{}, r.ServiceReconciler.Reconcile(ctx, primarySvc)
 }
 
-func (r *DoltDBReconciler) reconcileReaderService(ctx context.Context, doltdb *doltv1alpha.DoltCluster) error {
+func (r *DoltDBReconciler) reconcileReaderService(ctx context.Context, doltdb *doltv1alpha.DoltDB) (ctrl.Result, error) {
 	primarySvc, err := r.Builder.BuildDoltReaderService(doltdb)
 	if err != nil {
-		return fmt.Errorf("error building reader Service: %v", err)
+		return ctrl.Result{}, fmt.Errorf("error building reader Service: %v", err)
 	}
 
-	return r.ServiceReconciler.Reconcile(ctx, primarySvc)
+	return ctrl.Result{}, r.ServiceReconciler.Reconcile(ctx, primarySvc)
 }
 
-func (r *DoltDBReconciler) reconcileStatefulSet(ctx context.Context, doltdb *doltv1alpha.DoltCluster) (ctrl.Result, error) {
-	key := client.ObjectKeyFromObject(doltdb)
-
-	desiredSts, err := r.Builder.BuildDoltStatefulSet(key, doltdb)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("error building StatefulSet: %v", err)
-	}
-
-	if err := r.StatefulSetReconciler.ReconcileWithUpdates(ctx, desiredSts); err != nil {
-		return ctrl.Result{}, fmt.Errorf("error reconciling StatefulSet: %v", err)
-	}
-
-	if result, err := r.reconcileUpdates(ctx, doltdb); !result.IsZero() || err != nil {
-		return result, err
-	}
-	return ctrl.Result{}, nil
-}
-
-func (r *DoltDBReconciler) reconcilePodLabels(ctx context.Context, doltdb *doltv1alpha.DoltCluster) (ctrl.Result, error) {
+func (r *DoltDBReconciler) reconcilePodLabels(ctx context.Context, doltdb *doltv1alpha.DoltDB) (ctrl.Result, error) {
 	if doltdb.Status.CurrentPrimaryPodIndex == nil {
 		return ctrl.Result{RequeueAfter: 1 * time.Second}, nil
 	}
@@ -291,6 +297,11 @@ func (r *DoltDBReconciler) reconcilePodLabels(ctx context.Context, doltdb *doltv
 	for _, pod := range podList.Items {
 		podLabels := builder.NewLabelsBuilder().WithLabels(pod.Labels)
 
+		if doltdb.Status.CurrentPrimaryPodIndex == nil {
+			log.FromContext(ctx).V(1).Info("'status.currentPrimaryPodIndex' must be set")
+			return ctrl.Result{RequeueAfter: 1 * time.Second}, nil
+		}
+
 		if pod.Status.PodIP == "" || pod.Spec.NodeName == "" {
 			continue
 		}
@@ -299,6 +310,8 @@ func (r *DoltDBReconciler) reconcilePodLabels(ctx context.Context, doltdb *doltv
 			return ctrl.Result{}, fmt.Errorf("error getting Pod '%s' index: %v", pod.Name, err)
 		}
 
+		p := client.MergeFrom(pod.DeepCopy())
+
 		podLabels.WithStatefulSetPod(doltdb, *podIndex)
 
 		if *podIndex == *doltdb.Status.CurrentPrimaryPodIndex {
@@ -306,8 +319,6 @@ func (r *DoltDBReconciler) reconcilePodLabels(ctx context.Context, doltdb *doltv
 		} else {
 			pod.Labels = podLabels.WithPodStandbyRole().Build()
 		}
-
-		p := client.MergeFrom(pod.DeepCopy())
 
 		if doltpod.PodReady(&pod) {
 			if err := r.Patch(ctx, &pod, p); err != nil {
@@ -325,11 +336,11 @@ func (r *DoltDBReconciler) reconcilePodLabels(ctx context.Context, doltdb *doltv
 	return ctrl.Result{}, nil
 }
 
-func (r *DoltDBReconciler) reconcileRBAC(ctx context.Context, doltdb *doltv1alpha.DoltCluster) (ctrl.Result, error) {
+func (r *DoltDBReconciler) reconcileRBAC(ctx context.Context, doltdb *doltv1alpha.DoltDB) (ctrl.Result, error) {
 	return ctrl.Result{}, r.RBACReconciler.ReconcileDoltRBAC(ctx, doltdb)
 }
 
-func (r *DoltDBReconciler) reconcilePodDisruptionBudget(ctx context.Context, doltdb *doltv1alpha.DoltCluster) (ctrl.Result, error) {
+func (r *DoltDBReconciler) reconcilePodDisruptionBudget(ctx context.Context, doltdb *doltv1alpha.DoltDB) (ctrl.Result, error) {
 	key := doltdb.PodDisruptionBudgetKey()
 
 	var existingPDB policyv1.PodDisruptionBudget

@@ -1,0 +1,16 @@
+apiVersion: k8s.dolthub.com/v1alpha
+kind: DoltDB
+metadata:
+  name: dolt
+  namespace: default
+spec:
+  engineVersion: 1.7.6
+  image: "dolthub/dolt"
+  replicas: 3
+  storage:
+    size: "100Gi"
+  replication:
+    enabled: true
+    primary: 
+      podIndex: 0
+      automaticFailover: true

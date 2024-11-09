@@ -24,8 +24,8 @@ func TestPollWithDoltCluster(t *testing.T) {
 
 	client := fake.NewClientBuilder().WithScheme(scheme).Build()
 
-	if err := client.Create(ctx, &doltv1alpha.DoltCluster{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"}}); err != nil {
-		t.Fatalf("failed to create DoltCluster: %v", err)
+	if err := client.Create(ctx, &doltv1alpha.DoltDB{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"}}); err != nil {
+		t.Fatalf("failed to create DoltDB: %v", err)
 	}
 
 	doltdbKey := types.NamespacedName{Name: "test", Namespace: "default"}
@@ -39,7 +39,7 @@ func TestPollWithDoltCluster(t *testing.T) {
 		}
 	})
 
-	t.Run("doltcluster not found", func(t *testing.T) {
+	t.Run("doltdb not found", func(t *testing.T) {
 		err := PollWithDoltDB(ctx, types.NamespacedName{Namespace: "default", Name: "another-unknown-doltdb"}, client, logger, func(ctx context.Context) error {
 			return nil
 		})
@@ -48,7 +48,7 @@ func TestPollWithDoltCluster(t *testing.T) {
 		}
 	})
 
-	t.Run("doltcluster get error", func(t *testing.T) {
+	t.Run("doltdb get error", func(t *testing.T) {
 		err := PollWithDoltDB(ctx, doltdbKey, client, logger, func(ctx context.Context) error {
 			return errors.New("unexpected error")
 		})

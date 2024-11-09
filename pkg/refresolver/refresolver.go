@@ -27,7 +27,7 @@ func New(client client.Client) *RefResolver {
 
 // DoltDB retrieves a DoltDB resource based on the provided DoltClusterRef and namespace.
 func (r *RefResolver) DoltDB(ctx context.Context, ref *doltv1alpha1.DoltClusterRef,
-	namespace string) (*doltv1alpha1.DoltCluster, error) {
+	namespace string) (*doltv1alpha1.DoltDB, error) {
 	key := types.NamespacedName{
 		Name:      ref.Name,
 		Namespace: namespace,
@@ -36,15 +36,15 @@ func (r *RefResolver) DoltDB(ctx context.Context, ref *doltv1alpha1.DoltClusterR
 		key.Namespace = ref.Namespace
 	}
 
-	var doltdb doltv1alpha1.DoltCluster
+	var doltdb doltv1alpha1.DoltDB
 	if err := r.client.Get(ctx, key, &doltdb); err != nil {
 		return nil, err
 	}
 	return &doltdb, nil
 }
 
-// DoltDBPodRef retrieves a Pod resource based on the provided DoltCluster and podIndex.
-func (r *RefResolver) DoltDBPodRef(ctx context.Context, doltdb *doltv1alpha1.DoltCluster, index int) (*corev1.Pod, error) {
+// DoltDBPodRef retrieves a Pod resource based on the provided DoltDB and podIndex.
+func (r *RefResolver) DoltDBPodRef(ctx context.Context, doltdb *doltv1alpha1.DoltDB, index int) (*corev1.Pod, error) {
 	key := types.NamespacedName{
 		Name:      statefulset.PodName(doltdb.ObjectMeta, index),
 		Namespace: doltdb.Namespace,
@@ -56,14 +56,14 @@ func (r *RefResolver) DoltDBPodRef(ctx context.Context, doltdb *doltv1alpha1.Dol
 	return &pod, nil
 }
 
-// DoltDBFromAnnotation retrieves a DoltCluster resource based on the annotation in the provided ObjectMeta.
-func (r *RefResolver) DoltDBFromAnnotation(ctx context.Context, objMeta metav1.ObjectMeta) (*doltv1alpha1.DoltCluster, error) {
+// DoltDBFromAnnotation retrieves a DoltDB resource based on the annotation in the provided ObjectMeta.
+func (r *RefResolver) DoltDBFromAnnotation(ctx context.Context, objMeta metav1.ObjectMeta) (*doltv1alpha1.DoltDB, error) {
 	doltdbAnnotation, ok := objMeta.Annotations[dolt.Annotation]
 	if !ok {
 		return nil, ErrDoltClusterAnnotationNotFound
 	}
 
-	var doltdb doltv1alpha1.DoltCluster
+	var doltdb doltv1alpha1.DoltDB
 	key := types.NamespacedName{
 		Name:      doltdbAnnotation,
 		Namespace: objMeta.Namespace,

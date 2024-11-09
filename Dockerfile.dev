@@ -1,0 +1,29 @@
+# Build the manager binary
+FROM golang:1.23 AS builder
+
+ARG TARGETOS
+ARG TARGETARCH
+
+RUN apt install bash make
+
+WORKDIR /workspace
+# Copy the Go Modules manifests
+COPY go.mod go.mod
+COPY go.sum go.sum
+# cache deps before building and copying source so that we don't need to re-download as much
+# and so that source changes don't invalidate our downloaded layer
+COPY vendor/ vendor/
+RUN go mod download
+
+COPY make/ make/
+COPY Makefile .
+
+# Copy the go source
+COPY cmd/main.go cmd/main.go
+COPY api/ api/
+COPY hack/ hack/
+COPY config/ config/
+COPY internal/controller/ internal/controller/
+COPY pkg/ pkg/
+
+ENTRYPOINT ["make", "test-int"]

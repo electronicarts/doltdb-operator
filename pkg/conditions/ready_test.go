@@ -12,7 +12,7 @@ func TestSetReadyWithDoltCluster(t *testing.T) {
 	tests := []struct {
 		name            string
 		sts             *appsv1.StatefulSet
-		doltdb          *doltv1alpha.DoltCluster
+		doltdb          *doltv1alpha.DoltDB
 		expectedStatus  metav1.ConditionStatus
 		expectedReason  string
 		expectedMessage string
@@ -25,8 +25,8 @@ func TestSetReadyWithDoltCluster(t *testing.T) {
 					ReadyReplicas: 1,
 				},
 			},
-			doltdb: &doltv1alpha.DoltCluster{
-				Status: doltv1alpha.DoltClusterStatus{
+			doltdb: &doltv1alpha.DoltDB{
+				Status: doltv1alpha.DoltDBStatus{
 					Conditions: []metav1.Condition{
 						{
 							Type:    doltv1alpha.ConditionTypeUpdated,
@@ -49,7 +49,7 @@ func TestSetReadyWithDoltCluster(t *testing.T) {
 					ReadyReplicas: 0,
 				},
 			},
-			doltdb:          &doltv1alpha.DoltCluster{},
+			doltdb:          &doltv1alpha.DoltDB{},
 			expectedStatus:  metav1.ConditionFalse,
 			expectedReason:  doltv1alpha.ConditionReasonStatefulSetNotReady,
 			expectedMessage: "Not ready",
@@ -62,8 +62,8 @@ func TestSetReadyWithDoltCluster(t *testing.T) {
 					ReadyReplicas: 1,
 				},
 			},
-			doltdb: &doltv1alpha.DoltCluster{
-				Status: doltv1alpha.DoltClusterStatus{
+			doltdb: &doltv1alpha.DoltDB{
+				Status: doltv1alpha.DoltDBStatus{
 					Conditions: []metav1.Condition{
 						{
 							Type:    doltv1alpha.ConditionTypeUpdated,
@@ -86,7 +86,7 @@ func TestSetReadyWithDoltCluster(t *testing.T) {
 					ReadyReplicas: 1,
 				},
 			},
-			doltdb:          &doltv1alpha.DoltCluster{},
+			doltdb:          &doltv1alpha.DoltDB{},
 			expectedStatus:  metav1.ConditionTrue,
 			expectedReason:  doltv1alpha.ConditionReasonStatefulSetReady,
 			expectedMessage: "Running",

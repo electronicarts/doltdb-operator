@@ -74,7 +74,7 @@ func MarkRolePrimary(ctx context.Context, doltPod *corev1.Pod, k8sClient client.
 	return k8sClient.Patch(ctx, doltPod, patch)
 }
 
-func CurrentPrimaryAndEpoch(doltdb *doltv1alpha.DoltCluster, dbstates []DBState) (int, int, error) {
+func CurrentPrimaryAndEpoch(doltdb *doltv1alpha.DoltDB, dbstates []DBState) (int, int, error) {
 	highestEpoch := 0
 	currentPrimary := -1
 

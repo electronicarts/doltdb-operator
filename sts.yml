@@ -1,0 +1,218 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    app: dolt
+  name: dolt
+  namespace: dolt-test
+data:
+  dolt-0.yaml: |
+    log_level: trace
+    cluster:
+      standby_remotes:
+      - name: dolt-1
+        remote_url_template: http://dolt-1.dolt-internal:50051/{database}
+      - name: dolt-2
+        remote_url_template: http://dolt-2.dolt-internal:50051/{database}
+      bootstrap_epoch: 1
+      bootstrap_role: primary
+    remotesapi:
+      port: 50051
+    listener:
+      host: 0.0.0.0
+      port: 3306
+      max_connections: 128
+  dolt-1.yaml: |
+    log_level: trace
+    cluster:
+      standby_remotes:
+      - name: dolt-0
+        remote_url_template: http://dolt-0.dolt-internal:50051/{database}
+      - name: dolt-2
+        remote_url_template: http://dolt-2.dolt-internal:50051/{database}
+      bootstrap_epoch: 1
+      bootstrap_role: standby
+    remotesapi:
+      port: 50051
+    listener:
+      host: 0.0.0.0
+      port: 3306
+      max_connections: 128
+  dolt-2.yaml: |
+    log_level: trace
+    cluster:
+      standby_remotes:
+      - name: dolt-0
+        remote_url_template: http://dolt-0.dolt-internal:50051/{database}
+      - name: dolt-1
+        remote_url_template: http://dolt-1.dolt-internal:50051/{database}
+      bootstrap_epoch: 1
+      bootstrap_role: standby
+    remotesapi:
+      port: 50051
+    listener:
+      host: 0.0.0.0
+      port: 3306
+      max_connections: 128
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: dolt
+  name: dolt-internal
+  namespace: dolt-test
+spec:
+  clusterIP: None
+  ports:
+  - name: dolt
+    port: 3306
+  selector:
+    app: dolt
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: dolt
+  name: dolt-primary
+  namespace: dolt-test
+spec:
+  ports:
+  - name: dolt
+    port: 3306
+  selector:
+    app: dolt
+    k8s.dolthub.com/cluster-role: primary
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: dolt
+  name: dolt-reader
+  namespace: dolt-test
+spec:
+  ports:
+  - name: dolt
+    port: 3306
+  selector:
+    app: dolt
+    k8s.dolthub.com/cluster-role: standby
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    app: dolt
+  name: dolt
+  namespace: dolt-test
+spec:
+  podManagementPolicy: OrderedReady
+  replicas: 3
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: dolt
+  serviceName: dolt-internal
+  template:
+    metadata:
+      labels:
+        app: dolt
+      namespace: dolt-test
+    spec:
+      containers:
+      - command:
+        - /usr/local/bin/dolt
+        - sql-server
+        - --config
+        - config.yaml
+        - --data-dir 
+        - .
+        env:
+        - name: DOLT_ROOT_PATH
+          value: /db
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: DOLT_USERNAME
+          valueFrom:
+            secretKeyRef:
+              key: admin-user
+              name: dolt-credentials
+        - name: DOLT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: admin-password
+              name: dolt-credentials
+        image: dolthub/dolt:1.7.6
+        imagePullPolicy: IfNotPresent
+        name: dolt
+        ports:
+        - containerPort: 3306
+          name: dolt
+        volumeMounts:
+        - mountPath: /etc/doltdb
+          name: config
+        - mountPath: /db
+          name: dolt-data
+        workingDir: /db
+      initContainers:
+      - command:
+        - /bin/sh
+        - -c
+        - |-
+          dolt config --global --add user.name "dolt kubernetes deployment"
+          dolt config --global --add user.email "dolt@kubernetes.deployment"
+          cp /etc/doltdb/${POD_NAME}.yaml config.yaml
+          if [ -n "$DOLT_PASSWORD" -a ! -f .doltcfg/privileges.db ]; then
+            dolt sql -q "create user '$DOLT_USERNAME' identified by '$DOLT_PASSWORD'; grant all privileges on *.* to '$DOLT_USERNAME' with grant option;"
+          fi
+        env:
+        - name: DOLT_ROOT_PATH
+          value: /db
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: DOLT_USERNAME
+          valueFrom:
+            secretKeyRef:
+              key: admin-user
+              name: dolt-credentials
+        - name: DOLT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: admin-password
+              name: dolt-credentials
+        image: dolthub/dolt:1.7.6
+        imagePullPolicy: IfNotPresent
+        name: dolt-init
+        volumeMounts:
+        - mountPath: /etc/doltdb
+          name: config
+        - mountPath: /db
+          name: dolt-data
+        workingDir: /db
+      volumes:
+      - configMap:
+          name: dolt
+        name: config
+  updateStrategy:
+    type: OnDelete
+  volumeClaimTemplates:
+  - metadata:
+      name: dolt-data
+      namespace: dolt-test
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 1Gi
+      storageClassName: standard-resize

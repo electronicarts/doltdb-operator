@@ -6,5 +6,3 @@ nodes:
     image: &image kindest/node:v1.31.0
   - role: worker
     image: *image
-  - role: worker
-    image: *image

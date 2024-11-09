@@ -35,7 +35,7 @@ spec:
         - /manager
         args:
           - --health-probe-bind-address=:8081
-        image: dolt-operator:0.0.2
+        image: localhost:5000/dolt-operator:local
         name: manager
         securityContext:
           allowPrivilegeEscalation: false

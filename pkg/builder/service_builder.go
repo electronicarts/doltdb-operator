@@ -19,7 +19,7 @@ func doltServicePorts() []v1.ServicePort {
 }
 
 // BuildDoltInternalService creates a headless service for the Dolt cluster.
-func (b *Builder) BuildDoltInternalService(doltdb *doltv1alpha.DoltCluster) (*v1.Service, error) {
+func (b *Builder) BuildDoltInternalService(doltdb *doltv1alpha.DoltDB) (*v1.Service, error) {
 	objMeta := NewMetadataBuilder(doltdb.InternalServiceKey()).
 		WithMetadata(&doltdb.ObjectMeta).Build()
 
@@ -42,11 +42,15 @@ func (b *Builder) BuildDoltInternalService(doltdb *doltv1alpha.DoltCluster) (*v1
 }
 
 // BuildDoltPrimaryService creates a primary service for the Dolt cluster.
-func (b *Builder) BuildDoltPrimaryService(doltdb *doltv1alpha.DoltCluster) (*v1.Service, error) {
+func (b *Builder) BuildDoltPrimaryService(doltdb *doltv1alpha.DoltDB) (*v1.Service, error) {
 	objMeta := NewMetadataBuilder(doltdb.PrimaryServiceKey()).
 		WithMetadata(&doltdb.ObjectMeta).Build()
 
-	labels := NewLabelsBuilder().WithDoltSelectorLabels(doltdb).WithPodPrimaryRole().Build()
+	labels := NewLabelsBuilder().
+		WithDoltSelectorLabels(doltdb).
+		WithPodPrimaryRole().
+		WithStatefulSetPod(doltdb, *doltdb.Status.CurrentPrimaryPodIndex).
+		Build()
 
 	svc := &v1.Service{
 		ObjectMeta: objMeta,
@@ -65,7 +69,7 @@ func (b *Builder) BuildDoltPrimaryService(doltdb *doltv1alpha.DoltCluster) (*v1.
 }
 
 // BuildDoltReaderService creates a reader service for the Dolt cluster.
-func (b *Builder) BuildDoltReaderService(doltdb *doltv1alpha.DoltCluster) (*v1.Service, error) {
+func (b *Builder) BuildDoltReaderService(doltdb *doltv1alpha.DoltDB) (*v1.Service, error) {
 	objMeta := NewMetadataBuilder(doltdb.ReaderServiceKey()).
 		WithMetadata(&doltdb.ObjectMeta).Build()
 

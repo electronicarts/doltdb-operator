@@ -23,7 +23,7 @@ func TestDoltDBFromAnnotation(t *testing.T) {
 	tests := []struct {
 		name          string
 		objMeta       metav1.ObjectMeta
-		expectedDolt  *doltv1alpha1.DoltCluster
+		expectedDolt  *doltv1alpha1.DoltDB
 		expectedError error
 	}{
 		{
@@ -42,7 +42,7 @@ func TestDoltDBFromAnnotation(t *testing.T) {
 				},
 				Namespace: "default",
 			},
-			expectedError: apierrors.NewNotFound(doltv1alpha1.GroupVersion.WithResource("doltclusters").GroupResource(), "dolt-cluster"),
+			expectedError: apierrors.NewNotFound(doltv1alpha1.GroupVersion.WithResource("doltdbs").GroupResource(), "dolt-cluster"),
 		},
 		{
 			name: "dolt cluster found",
@@ -52,7 +52,7 @@ func TestDoltDBFromAnnotation(t *testing.T) {
 				},
 				Namespace: "default",
 			},
-			expectedDolt: &doltv1alpha1.DoltCluster{
+			expectedDolt: &doltv1alpha1.DoltDB{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "dolt-cluster",
 					Namespace: "default",
@@ -94,7 +94,7 @@ func TestDoltDB(t *testing.T) {
 		name          string
 		ref           *doltv1alpha1.DoltClusterRef
 		namespace     string
-		expectedDolt  *doltv1alpha1.DoltCluster
+		expectedDolt  *doltv1alpha1.DoltDB
 		expectedError error
 	}{
 		{
@@ -105,7 +105,7 @@ func TestDoltDB(t *testing.T) {
 				},
 			},
 			namespace:     "default",
-			expectedError: apierrors.NewNotFound(doltv1alpha1.GroupVersion.WithResource("doltclusters").GroupResource(), "dolt-cluster"),
+			expectedError: apierrors.NewNotFound(doltv1alpha1.GroupVersion.WithResource("doltdbs").GroupResource(), "dolt-cluster"),
 		},
 		{
 			name: "dolt cluster found",
@@ -115,7 +115,7 @@ func TestDoltDB(t *testing.T) {
 				},
 			},
 			namespace: "default",
-			expectedDolt: &doltv1alpha1.DoltCluster{
+			expectedDolt: &doltv1alpha1.DoltDB{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "dolt-cluster",
 					Namespace: "default",

@@ -8,7 +8,7 @@ import (
 )
 
 // InternalServiceKey defines the key for the internal headless Service
-func (d *DoltCluster) InternalServiceKey() types.NamespacedName {
+func (d *DoltDB) InternalServiceKey() types.NamespacedName {
 	return types.NamespacedName{
 		Name:      fmt.Sprintf("%s-internal", d.Name),
 		Namespace: d.Namespace,
@@ -16,7 +16,7 @@ func (d *DoltCluster) InternalServiceKey() types.NamespacedName {
 }
 
 // PrimaryServiceKey defines the key for the internal primary instance
-func (d *DoltCluster) PrimaryServiceKey() types.NamespacedName {
+func (d *DoltDB) PrimaryServiceKey() types.NamespacedName {
 	return types.NamespacedName{
 		Name:      fmt.Sprintf("%s-primary", d.Name),
 		Namespace: d.Namespace,
@@ -24,7 +24,7 @@ func (d *DoltCluster) PrimaryServiceKey() types.NamespacedName {
 }
 
 // InternalServiceKey defines the key for the internal reader instances
-func (d *DoltCluster) ReaderServiceKey() types.NamespacedName {
+func (d *DoltDB) ReaderServiceKey() types.NamespacedName {
 	return types.NamespacedName{
 		Name:      fmt.Sprintf("%s-reader", d.Name),
 		Namespace: d.Namespace,
@@ -32,7 +32,7 @@ func (d *DoltCluster) ReaderServiceKey() types.NamespacedName {
 }
 
 // PodDisruptionBudgetKey defines the key for the PodDisruptionBudget
-func (d *DoltCluster) PodDisruptionBudgetKey() types.NamespacedName {
+func (d *DoltDB) PodDisruptionBudgetKey() types.NamespacedName {
 	return types.NamespacedName{
 		Name:      fmt.Sprintf("%s-pdb", d.Name),
 		Namespace: d.Namespace,
@@ -40,7 +40,7 @@ func (d *DoltCluster) PodDisruptionBudgetKey() types.NamespacedName {
 }
 
 // PVCKey defines the PVC keys.
-func (d *DoltCluster) PVCKey(name string, index int) types.NamespacedName {
+func (d *DoltDB) PVCKey(name string, index int) types.NamespacedName {
 	return types.NamespacedName{
 		Name:      fmt.Sprintf("%s-%s-%d", name, d.Name, index),
 		Namespace: d.Namespace,
@@ -48,7 +48,7 @@ func (d *DoltCluster) PVCKey(name string, index int) types.NamespacedName {
 }
 
 // ConfigMapKeySelector defines the key selector for the ConfigMap used for replication healthchecks.
-func (d *DoltCluster) DefaultConfigMapKeyRef() ConfigMapKeySelector {
+func (d *DoltDB) DefaultConfigMapKeyRef() ConfigMapKeySelector {
 	return ConfigMapKeySelector{
 		LocalObjectReference: LocalObjectReference{
 			Name: fmt.Sprintf("%s-config", d.Name),
@@ -58,7 +58,7 @@ func (d *DoltCluster) DefaultConfigMapKeyRef() ConfigMapKeySelector {
 }
 
 // ConfigDataKey defines the config map keys.
-func (d *DoltCluster) DefaultConfigMapKey() types.NamespacedName {
+func (d *DoltDB) DefaultConfigMapKey() types.NamespacedName {
 	return types.NamespacedName{
 		Name:      fmt.Sprintf("%s-config", d.Name),
 		Namespace: d.Namespace,
@@ -66,7 +66,7 @@ func (d *DoltCluster) DefaultConfigMapKey() types.NamespacedName {
 }
 
 // PasswordSecretKeyRef defines the key selector for the admin password Secret.
-func (d *DoltCluster) RootPasswordSecretKeyRef() SecretKeySelector {
+func (d *DoltDB) RootPasswordSecretKeyRef() SecretKeySelector {
 	return SecretKeySelector{
 		LocalObjectReference: LocalObjectReference{
 			Name: fmt.Sprintf("%s-credentials", d.Name),
@@ -76,7 +76,7 @@ func (d *DoltCluster) RootPasswordSecretKeyRef() SecretKeySelector {
 }
 
 // UserSecretKeyRef defines the key selector for the admin user Secret.
-func (d *DoltCluster) RootUserSecretKeyRef() SecretKeySelector {
+func (d *DoltDB) RootUserSecretKeyRef() SecretKeySelector {
 	return SecretKeySelector{
 		LocalObjectReference: LocalObjectReference{
 			Name: fmt.Sprintf("%s-credentials", d.Name),
@@ -86,7 +86,7 @@ func (d *DoltCluster) RootUserSecretKeyRef() SecretKeySelector {
 }
 
 // ServiceAccountKey defines the service account key
-func (d *DoltCluster) ServiceAccountKey() types.NamespacedName {
+func (d *DoltDB) ServiceAccountKey() types.NamespacedName {
 	return types.NamespacedName{
 		Name:      ptr.Deref(d.Spec.ServiceAccountName, d.Name),
 		Namespace: d.Namespace,

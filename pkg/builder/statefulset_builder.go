@@ -1,11 +1,13 @@
 package builder
 
 import (
+	"fmt"
 	"strconv"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
 	"github.com/electronicarts/doltdb-operator/pkg/dolt"
@@ -14,9 +16,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-// BuildDoltStatefulSet constructs a StatefulSet for a DoltCluster based on the provided NamespacedName and DoltCluster object.
+// BuildDoltStatefulSet constructs a StatefulSet for a DoltDB based on the provided NamespacedName and DoltDB object.
 // It sets up the metadata, labels, volume claim templates, and pod template for the StatefulSet.
-func (b *Builder) BuildDoltStatefulSet(key types.NamespacedName, doltdb *doltv1alpha.DoltCluster) (*appsv1.StatefulSet, error) {
+func (b *Builder) BuildDoltStatefulSet(key types.NamespacedName, doltdb *doltv1alpha.DoltDB) (*appsv1.StatefulSet, error) {
 	labels := NewLabelsBuilder().
 		WithDoltSelectorLabels(doltdb).
 		WithVersion(doltdb.Spec.EngineVersion).
@@ -36,11 +38,11 @@ func (b *Builder) BuildDoltStatefulSet(key types.NamespacedName, doltdb *doltv1a
 	statefulSet := &appsv1.StatefulSet{
 		ObjectMeta: objMeta,
 		Spec: appsv1.StatefulSetSpec{
-			// PersistentVolumeClaimRetentionPolicy: ,
+			PersistentVolumeClaimRetentionPolicy: doltPVCRetentionPolicy(doltdb),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: matchLabels,
 			},
-			ServiceName: "dolt-internal",
+			ServiceName: doltdb.InternalServiceKey().Name,
 			UpdateStrategy: appsv1.StatefulSetUpdateStrategy{
 				Type: appsv1.OnDeleteStatefulSetStrategyType,
 			},
@@ -50,13 +52,18 @@ func (b *Builder) BuildDoltStatefulSet(key types.NamespacedName, doltdb *doltv1a
 		},
 	}
 
+	if err := controllerutil.SetControllerReference(doltdb, statefulSet, b.scheme); err != nil {
+		return nil, fmt.Errorf("error setting controller reference to StatefulSet: %v", err)
+	}
+
 	return statefulSet, nil
 }
 
-// doltVolumeClaimTemplates constructs a PersistentVolumeClaim for the given DoltCluster.
-func doltVolumeClaimTemplates(metadata metav1.ObjectMeta, doltdb *doltv1alpha.DoltCluster) []corev1.PersistentVolumeClaim {
+// doltVolumeClaimTemplates constructs a PersistentVolumeClaim for the given DoltDB.
+func doltVolumeClaimTemplates(metadata metav1.ObjectMeta, doltdb *doltv1alpha.DoltDB) []corev1.PersistentVolumeClaim {
 	labels := NewLabelsBuilder().
 		WithDoltSelectorLabels(doltdb).
+		WithPVCRole(DoltDataVolume).
 		Build()
 
 	objMeta :=
@@ -88,4 +95,15 @@ func doltVolumeClaimTemplates(metadata metav1.ObjectMeta, doltdb *doltv1alpha.Do
 	}
 
 	return []corev1.PersistentVolumeClaim{pvc}
+}
+
+func doltPVCRetentionPolicy(doltdb *doltv1alpha.DoltDB) *appsv1.StatefulSetPersistentVolumeClaimRetentionPolicy {
+	if doltdb.Spec.Storage.RetentionPolicy != nil {
+		return doltdb.Spec.Storage.RetentionPolicy
+	}
+
+	return &appsv1.StatefulSetPersistentVolumeClaimRetentionPolicy{
+		WhenDeleted: appsv1.RetainPersistentVolumeClaimRetentionPolicyType,
+		WhenScaled:  appsv1.RetainPersistentVolumeClaimRetentionPolicyType,
+	}
 }

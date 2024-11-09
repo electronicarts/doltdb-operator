@@ -41,8 +41,13 @@ import (
 	"github.com/electronicarts/doltdb-operator/internal/controller"
 	"github.com/electronicarts/doltdb-operator/pkg/builder"
 	"github.com/electronicarts/doltdb-operator/pkg/conditions"
-	pkgctrl "github.com/electronicarts/doltdb-operator/pkg/controller"
+	"github.com/electronicarts/doltdb-operator/pkg/controller/configmap"
+	"github.com/electronicarts/doltdb-operator/pkg/controller/rbac"
 	"github.com/electronicarts/doltdb-operator/pkg/controller/replication"
+	"github.com/electronicarts/doltdb-operator/pkg/controller/service"
+	"github.com/electronicarts/doltdb-operator/pkg/controller/statefulset"
+	"github.com/electronicarts/doltdb-operator/pkg/controller/status"
+	"github.com/electronicarts/doltdb-operator/pkg/controller/storage"
 	"github.com/electronicarts/doltdb-operator/pkg/dolt"
 	"github.com/electronicarts/doltdb-operator/pkg/refresolver"
 	ctrlcontroller "sigs.k8s.io/controller-runtime/pkg/controller"
@@ -169,12 +174,14 @@ func main() {
 	refResolver := refresolver.New(client)
 
 	// controllers
-	rbacReconciler := pkgctrl.NewRBACReconiler(client, builder)
-	configMapReconciler := pkgctrl.NewConfigMapReconciler(client, builder)
-	serviceReconciler := pkgctrl.NewServiceReconciler(client)
-	statefulSetReconciler := pkgctrl.NewStatefulSetReconciler(client)
+	rbacReconciler := rbac.NewReconciler(client, builder)
+	configMapReconciler := configmap.NewReconciler(client, builder)
+	serviceReconciler := service.NewReconciler(client)
+	statefulSetReconciler := statefulset.NewReconciler(client, refResolver, builder)
+	statusReconciler := status.NewReconciler(client, refResolver)
+	storageReconciler := storage.NewReconciler(client, statefulSetReconciler)
 	replConfig := replication.NewReplicationConfig(client, builder)
-	replicationReconciler, err := replication.NewReplicationReconciler(
+	replicationReconciler, err := replication.NewReconciler(
 		client,
 		replRecorder,
 		builder,
@@ -210,6 +217,8 @@ func main() {
 		Builder:               builder,
 		ConditionReady:        conditionReady,
 		RefResolver:           refResolver,
+		StorageReconciler:     storageReconciler,
+		StatusReconciler:      statusReconciler,
 		RBACReconciler:        rbacReconciler,
 		ConfigMapReconciler:   configMapReconciler,
 		ServiceReconciler:     serviceReconciler,

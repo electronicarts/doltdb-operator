@@ -16,7 +16,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // Removes routing of traffic to the current primary.
@@ -32,10 +31,10 @@ type doltClusterContext struct {
 
 type gracefulFailoverPhase struct {
 	name      string
-	reconcile func(context.Context, *doltv1alpha.DoltCluster, *ReplicationClientSet, *doltClusterContext, logr.Logger) error
+	reconcile func(context.Context, *doltv1alpha.DoltDB, *ReplicationClientSet, *doltClusterContext, logr.Logger) error
 }
 
-func shouldReconcileSwitchover(doltdb *doltv1alpha.DoltCluster) bool {
+func shouldReconcileSwitchover(doltdb *doltv1alpha.DoltDB) bool {
 	if doltdb.IsUpdating() || doltdb.IsResizingStorage() {
 		return false
 	}
@@ -52,7 +51,7 @@ func (r *ReplicationReconciler) reconcileSwitchover(ctx context.Context, req *re
 	toIndex := req.doltdb.Replication().Primary.PodIndex
 	logger := switchoverLogger.WithValues("doltdb", client.ObjectKeyFromObject(req.doltdb), "from-index", fromIndex, "to-index", toIndex)
 
-	dbstates := r.GetDBStates(ctx, req.doltdb, req.clientSet)
+	dbstates := GetDBStates(ctx, req.doltdb, req.clientSet)
 
 	if !shouldReconcileSwitchover(req.doltdb) {
 		return nil
@@ -65,7 +64,7 @@ func (r *ReplicationReconciler) reconcileSwitchover(ctx context.Context, req *re
 		logger.V(2).Info("failed to get current primary and epoch, falling back", "err", err)
 	}
 
-	if err := r.patchStatus(ctx, req.doltdb, func(status *doltv1alpha.DoltClusterStatus) {
+	if err := r.patchStatus(ctx, req.doltdb, func(status *doltv1alpha.DoltDBStatus) {
 		conditions.SetPrimarySwitching(&req.doltdb.Status, req.doltdb)
 	}); err != nil {
 		return fmt.Errorf("error patching DoltDB status: %v", err)
@@ -105,7 +104,7 @@ func (r *ReplicationReconciler) reconcileSwitchover(ctx context.Context, req *re
 		}
 	}
 
-	if err := r.patchStatus(ctx, req.doltdb, func(status *doltv1alpha.DoltClusterStatus) {
+	if err := r.patchStatus(ctx, req.doltdb, func(status *doltv1alpha.DoltDBStatus) {
 		status.UpdateCurrentPrimary(req.doltdb, *toIndex)
 		status.UpdateReplicationEpoch(req.doltdb, doltDBCtx.nextEpoch)
 		conditions.SetPrimarySwitched(&req.doltdb.Status)
@@ -122,7 +121,7 @@ func (r *ReplicationReconciler) reconcileSwitchover(ctx context.Context, req *re
 
 func (r *ReplicationReconciler) shiftTrafficAwayFromPrimary(
 	ctx context.Context,
-	doltdb *doltv1alpha.DoltCluster,
+	doltdb *doltv1alpha.DoltDB,
 	clientSet *ReplicationClientSet,
 	doltCtx *doltClusterContext,
 	logger logr.Logger,
@@ -153,7 +152,7 @@ func (r *ReplicationReconciler) shiftTrafficAwayFromPrimary(
 
 func (r *ReplicationReconciler) setPrimaryReadOnly(
 	ctx context.Context,
-	doltdb *doltv1alpha.DoltCluster,
+	doltdb *doltv1alpha.DoltDB,
 	clientSet *ReplicationClientSet,
 	doltCtx *doltClusterContext,
 	logger logr.Logger,
@@ -170,6 +169,7 @@ func (r *ReplicationReconciler) setPrimaryReadOnly(
 	if err != nil {
 		return fmt.Errorf("error getting client for primary: %v", err)
 	}
+	defer clientSet.RemoveClientFromCache(*doltdb.Status.CurrentPrimaryPodIndex)
 
 	logger.Info("Enabling readonly mode in primary")
 	r.recorder.Event(
@@ -192,7 +192,7 @@ func (r *ReplicationReconciler) setPrimaryReadOnly(
 
 func (r *ReplicationReconciler) configureNewPrimary(
 	ctx context.Context,
-	doltdb *doltv1alpha.DoltCluster,
+	doltdb *doltv1alpha.DoltDB,
 	clientSet *ReplicationClientSet,
 	doltCtx *doltClusterContext,
 	logger logr.Logger,
@@ -206,6 +206,7 @@ func (r *ReplicationReconciler) configureNewPrimary(
 	if err != nil {
 		return fmt.Errorf("error getting new primary SQL client: %v", err)
 	}
+	defer clientSet.RemoveClientFromCache(*newPrimaryIndex)
 
 	logger.Info("Configuring new primary", "pod-index", newPrimaryIndex)
 
@@ -230,7 +231,7 @@ func (r *ReplicationReconciler) configureNewPrimary(
 
 func (r *ReplicationReconciler) shiftTrafficToNewPrimary(
 	ctx context.Context,
-	doltdb *doltv1alpha.DoltCluster,
+	doltdb *doltv1alpha.DoltDB,
 	clientSet *ReplicationClientSet,
 	doltCtx *doltClusterContext,
 	logger logr.Logger,
@@ -258,25 +259,9 @@ func (r *ReplicationReconciler) shiftTrafficToNewPrimary(
 	return nil
 }
 
-func (r *ReplicationReconciler) currentPrimaryReady(ctx context.Context, doltdb *doltv1alpha.DoltCluster) (*corev1.Pod, bool, error) {
+func (r *ReplicationReconciler) currentPrimaryReady(ctx context.Context, doltdb *doltv1alpha.DoltDB) (*corev1.Pod, bool, error) {
 	if doltdb.Status.CurrentPrimaryPodIndex == nil {
 		return nil, false, errors.New("'status.currentPrimaryPodIndex' must be set")
 	}
 	return health.IsDoltDBReplicaHealthy(ctx, r, doltdb, *doltdb.Status.CurrentPrimaryPodIndex)
-}
-
-func (r *ReplicationReconciler) GetDBStates(ctx context.Context, doltdb *doltv1alpha.DoltCluster, clientSet *ReplicationClientSet) []dolt.DBState {
-	ret := make([]dolt.DBState, doltdb.Spec.Replicas)
-	for i := 0; i < int(doltdb.Spec.Replicas); i++ {
-		client, err := clientSet.ClientForIndex(ctx, i)
-		if err != nil {
-			continue
-		}
-		ret[i], err = client.GetDBState(ctx)
-		if err != nil {
-			log.FromContext(ctx).V(1).Info("error getting DB state, skipping", "pod", statefulset.PodName(doltdb.ObjectMeta, i), "err", err)
-			continue
-		}
-	}
-	return ret
 }

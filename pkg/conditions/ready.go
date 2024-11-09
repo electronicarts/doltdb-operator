@@ -75,8 +75,8 @@ func SetReadyWithStatefulSet(c Conditioner, sts *appsv1.StatefulSet) {
 	})
 }
 
-// SetReadyWithDoltCluster sets the Ready condition based on the status of the provided StatefulSet and DoltCluster.
-func SetReadyWithDoltCluster(c Conditioner, sts *appsv1.StatefulSet, doltdb *doltv1alpha.DoltCluster) {
+// SetReadyWithDoltCluster sets the Ready condition based on the status of the provided StatefulSet and DoltDB.
+func SetReadyWithDoltCluster(c Conditioner, sts *appsv1.StatefulSet, doltdb *doltv1alpha.DoltDB) {
 	if doltdb.IsUpdating() {
 		c.SetCondition(metav1.Condition{
 			Type:    doltv1alpha.ConditionTypeReady,

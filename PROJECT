@@ -14,7 +14,7 @@ resources:
   controller: true
   domain: REDACTED
   group: dolt
-  kind: DoltCluster
+  kind: DoltDB
   path: github.com/electronicarts/doltdb-operator/api/v1alpha
   version: v1alpha
 version: "3"

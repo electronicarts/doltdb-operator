@@ -10,14 +10,14 @@ import (
 )
 
 type ClientSet struct {
-	DoltDB        *doltv1alpha1.DoltCluster
+	DoltDB        *doltv1alpha1.DoltDB
 	refResolver   *refresolver.RefResolver
 	clientByIndex map[int]*Client
 	mux           *sync.Mutex
 }
 
 // NewClientSet creates a new ClientSet instance.
-func NewClientSet(doltdb *doltv1alpha1.DoltCluster, refResolver *refresolver.RefResolver) *ClientSet {
+func NewClientSet(doltdb *doltv1alpha1.DoltDB, refResolver *refresolver.RefResolver) *ClientSet {
 	return &ClientSet{
 		DoltDB:        doltdb,
 		refResolver:   refResolver,
@@ -34,6 +34,16 @@ func (c *ClientSet) Close() error {
 		}
 	}
 	return nil
+}
+
+// RemoveClientFromCache
+func (c *ClientSet) RemoveClientFromCache(index int) {
+	c.mux.Lock()
+	defer c.mux.Unlock()
+	_, ok := c.clientByIndex[index]
+	if ok {
+		delete(c.clientByIndex, index)
+	}
 }
 
 // ClientForIndex returns a client for the given index, creating it if necessary.

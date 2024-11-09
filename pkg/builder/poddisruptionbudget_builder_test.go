@@ -12,12 +12,12 @@ func TestPodDisruptionBudgetMeta(t *testing.T) {
 	tests := []struct {
 		name     string
 		opts     PodDisruptionBudgetOpts
-		wantMeta *doltv1alpha.DoltCluster
+		wantMeta *doltv1alpha.DoltDB
 	}{
 		{
 			name: "no meta",
 			opts: PodDisruptionBudgetOpts{},
-			wantMeta: &doltv1alpha.DoltCluster{
+			wantMeta: &doltv1alpha.DoltDB{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels:      map[string]string{},
 					Annotations: map[string]string{},
@@ -36,7 +36,7 @@ func TestPodDisruptionBudgetMeta(t *testing.T) {
 					},
 				},
 			},
-			wantMeta: &doltv1alpha.DoltCluster{
+			wantMeta: &doltv1alpha.DoltDB{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						"doltdb.org.com": "dolt",
@@ -51,7 +51,7 @@ func TestPodDisruptionBudgetMeta(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			configMap, err := builder.BuildPodDisruptionBudget(tt.opts, &doltv1alpha.DoltCluster{
+			configMap, err := builder.BuildPodDisruptionBudget(tt.opts, &doltv1alpha.DoltDB{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "doltdb",
 				},

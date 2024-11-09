@@ -2,6 +2,7 @@ package builder
 
 import (
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
+	"github.com/electronicarts/doltdb-operator/pkg/dolt"
 	"github.com/electronicarts/doltdb-operator/pkg/statefulset"
 )
 
@@ -10,8 +11,6 @@ const (
 	instanceLabel      = "app.kubernetes.io/instance"
 	statefulSetPodName = "statefulset.kubernetes.io/pod-name"
 	versionLabel       = "app.kubernetes.io/version"
-	volumeRole         = "pvc.k8s.dolt/role"
-	podRole            = "k8s.dolt/cluster-role"
 )
 
 type LabelsBuilder struct {
@@ -48,8 +47,8 @@ func (b *LabelsBuilder) WithInstance(instance string) *LabelsBuilder {
 }
 
 // WithStatefulSetPod sets the stateful set pod name label.
-func (b *LabelsBuilder) WithStatefulSetPod(mdb *doltv1alpha.DoltCluster, podIndex int) *LabelsBuilder {
-	b.labels[statefulSetPodName] = statefulset.PodName(mdb.ObjectMeta, podIndex)
+func (b *LabelsBuilder) WithStatefulSetPod(doltdb *doltv1alpha.DoltDB, podIndex int) *LabelsBuilder {
+	b.labels[statefulSetPodName] = statefulset.PodName(doltdb.ObjectMeta, podIndex)
 	return b
 }
 
@@ -61,26 +60,26 @@ func (b *LabelsBuilder) WithLabels(labels map[string]string) *LabelsBuilder {
 	return b
 }
 
-// WithDoltSelectorLabels sets the app and instance labels for a DoltCluster.
-func (b *LabelsBuilder) WithDoltSelectorLabels(doltdb *doltv1alpha.DoltCluster) *LabelsBuilder {
+// WithDoltSelectorLabels sets the app and instance labels for a DoltDB.
+func (b *LabelsBuilder) WithDoltSelectorLabels(doltdb *doltv1alpha.DoltDB) *LabelsBuilder {
 	return b.WithApp(doltdb.Name)
 }
 
 // WithPVCRole sets the PVC role label.
 func (b *LabelsBuilder) WithPVCRole(role string) *LabelsBuilder {
-	b.labels[volumeRole] = role
+	b.labels[dolt.VolumeRoleLabel] = role
 	return b
 }
 
 // WithPodRole sets the pod role label to primary.
 func (b *LabelsBuilder) WithPodPrimaryRole() *LabelsBuilder {
-	b.labels[podRole] = "primary"
+	b.labels[dolt.RoleLabel] = dolt.PrimaryRoleValue.String()
 	return b
 }
 
 // WithPodStandbyRole sets the pod role label to standby.
 func (b *LabelsBuilder) WithPodStandbyRole() *LabelsBuilder {
-	b.labels[podRole] = "standby"
+	b.labels[dolt.RoleLabel] = dolt.StandbyRoleValue.String()
 	return b
 }
 

@@ -4,11 +4,12 @@ import (
 	"fmt"
 
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
+	"github.com/electronicarts/doltdb-operator/pkg/statefulset"
 	"gopkg.in/yaml.v2"
 )
 
 // GenerateConfigMapData generates the configuration data for the ConfigMap based on the number of replicas.
-func GenerateConfigMapData(doltdb *doltv1alpha.DoltCluster) (map[string]string, error) {
+func GenerateConfigMapData(doltdb *doltv1alpha.DoltDB) (map[string]string, error) {
 	var maxConnections int32
 
 	if doltdb.Spec.MaxConnections != nil {
@@ -25,9 +26,9 @@ func GenerateConfigMapData(doltdb *doltv1alpha.DoltCluster) (map[string]string, 
 				StandbyRemotes: generateStandbyRemotes(i, doltdb),
 				BootstrapEpoch: 1,
 				BootstrapRole:  getBootstrapRole(i),
-			},
-			RemotesAPI: RemotesAPI{
-				Port: RemotesAPIPort,
+				RemotesAPI: RemotesAPI{
+					Port: RemotesAPIPort,
+				},
 			},
 			Listener: Listener{
 				Host:           "0.0.0.0",
@@ -45,13 +46,13 @@ func GenerateConfigMapData(doltdb *doltv1alpha.DoltCluster) (map[string]string, 
 }
 
 // generateStandbyRemotes generates the standby remotes section of the configuration.
-func generateStandbyRemotes(current int, doltdb *doltv1alpha.DoltCluster) []StandbyRemote {
+func generateStandbyRemotes(current int, doltdb *doltv1alpha.DoltDB) []StandbyRemote {
 	var remotes []StandbyRemote
 	for i := 0; i < int(doltdb.Spec.Replicas); i++ {
 		if i != current {
 			remotes = append(remotes, StandbyRemote{
 				Name:              fmt.Sprintf("%s-%d", doltdb.Name, i),
-				RemoteURLTemplate: fmt.Sprintf("http://%s-%d.%s.%s:%d/{database}", doltdb.Name, i, doltdb.InternalServiceKey().Name, doltdb.Namespace, RemotesAPIPort),
+				RemoteURLTemplate: fmt.Sprintf("http://%s:%d/{database}", statefulset.PodShortFQDNWithServiceAndNamespace(doltdb.ObjectMeta, i, doltdb.InternalServiceKey().Name), RemotesAPIPort),
 			})
 		}
 	}

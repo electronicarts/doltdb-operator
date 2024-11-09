@@ -36,12 +36,12 @@ func NewPodController(name string, client client.Client, refResolver *refresolve
 	}
 }
 
-//+kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 // Reconcile reconciles a Pod resource to ensure it is in the desired state.
-// It fetches the Pod object, resolves the associated DoltCluster from annotations,
+// It fetches the Pod object, resolves the associated DoltDB from annotations,
 // and handles the Pod's readiness state.
 func (r *PodController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var pod corev1.Pod

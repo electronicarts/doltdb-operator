@@ -15,7 +15,6 @@ const (
 
 	DoltMySQLPortName = "dolt"
 	DoltMySQLPort     = 3306
-	DoltRemoteAPIPort = 50051
 
 	DoltDataVolume   = "dolt-data"
 	DoltConfigVolume = "dolt-config"
@@ -27,12 +26,12 @@ const (
 func doltVolumeMounts() []corev1.VolumeMount {
 	return []corev1.VolumeMount{
 		{
-			Name:      DoltDataVolume,
-			MountPath: DoltDataMountPath,
-		},
-		{
 			Name:      DoltConfigVolume,
 			MountPath: DoltConfigMountPath,
+		},
+		{
+			Name:      DoltDataVolume,
+			MountPath: DoltDataMountPath,
 		},
 	}
 }
@@ -48,7 +47,7 @@ func doltContainerCommand() []string {
 	}
 }
 
-func doltEnv(doltcluster *doltv1alpha.DoltCluster) []corev1.EnvVar {
+func doltEnv(doltdb *doltv1alpha.DoltDB) []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{
 			Name:  "DOLT_ROOT_PATH",
@@ -65,19 +64,19 @@ func doltEnv(doltcluster *doltv1alpha.DoltCluster) []corev1.EnvVar {
 		{
 			Name: "DOLT_USERNAME",
 			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: ptr.To(doltcluster.RootUserSecretKeyRef().ToKubernetesType()),
+				SecretKeyRef: ptr.To(doltdb.RootUserSecretKeyRef().ToKubernetesType()),
 			},
 		},
 		{
 			Name: "DOLT_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: ptr.To(doltcluster.RootPasswordSecretKeyRef().ToKubernetesType()),
+				SecretKeyRef: ptr.To(doltdb.RootPasswordSecretKeyRef().ToKubernetesType()),
 			},
 		},
 	}
 }
 
-func doltContainers(doltdb *doltv1alpha.DoltCluster) []corev1.Container {
+func doltContainers(doltdb *doltv1alpha.DoltDB) []corev1.Container {
 	containers := []corev1.Container{
 		{
 			Name:            DoltContainerName,
@@ -90,17 +89,19 @@ func doltContainers(doltdb *doltv1alpha.DoltCluster) []corev1.Container {
 			Ports: []corev1.ContainerPort{
 				{
 					ContainerPort: DoltMySQLPort,
-					Name:          DoltContainerName,
+					Name:          DoltMySQLPortName,
 				},
 			},
-			VolumeMounts: doltVolumeMounts(),
+			VolumeMounts:   doltVolumeMounts(),
+			ReadinessProbe: doltReadinessProbe(),
+			LivenessProbe:  doltLivenessProbe(),
 		},
 	}
 
 	return containers
 }
 
-func doltInitContainers(doltdb *doltv1alpha.DoltCluster) []corev1.Container {
+func doltInitContainers(doltdb *doltv1alpha.DoltDB) []corev1.Container {
 	containers := []corev1.Container{
 		{
 			Name:            DoltInitContainerName,
@@ -110,12 +111,13 @@ func doltInitContainers(doltdb *doltv1alpha.DoltCluster) []corev1.Container {
 				"/bin/sh",
 				"-c",
 				`
-				dolt config --global --add user.name "dolt kubernetes deployment"
-				dolt config --global --add user.email "dolt@kubernetes.deployment"
-				cp /etc/doltdb/${POD_NAME}.yaml config.yaml
-				if [ -n "$DOLT_PASSWORD" -a ! -f .doltcfg/privileges.db ]; then
-					dolt sql -q "create user '$DOLT_USERNAME' identified by '$DOLT_PASSWORD'; grant all privileges on *.* to '$DOLT_USERNAME' with grant option;"
-				fi`,
+dolt config --global --add user.name "dolt kubernetes deployment"
+dolt config --global --add user.email "dolt@kubernetes.deployment"
+cp /etc/doltdb/${POD_NAME}.yaml config.yaml
+if [ -n "$DOLT_PASSWORD" -a ! -f .doltcfg/privileges.db ]; then
+	dolt sql -q "create user '$DOLT_USERNAME' identified by '$DOLT_PASSWORD'; grant all privileges on *.* to '$DOLT_USERNAME' with grant option;"
+fi
+				`,
 			},
 			WorkingDir:   DoltDataMountPath,
 			Env:          doltEnv(doltdb),
@@ -126,7 +128,7 @@ func doltInitContainers(doltdb *doltv1alpha.DoltCluster) []corev1.Container {
 	return containers
 }
 
-func doltResourceRequirements(doltdb *doltv1alpha.DoltCluster) corev1.ResourceRequirements {
+func doltResourceRequirements(doltdb *doltv1alpha.DoltDB) corev1.ResourceRequirements {
 	if doltdb.Spec.Resources != nil {
 		return *doltdb.Spec.Resources
 	}
@@ -139,5 +141,37 @@ func doltResourceRequirements(doltdb *doltv1alpha.DoltCluster) corev1.ResourceRe
 		Limits: corev1.ResourceList{
 			"memory": resource.MustParse("8Gi"),
 		},
+	}
+}
+
+func doltReadinessProbe() *corev1.Probe {
+	return &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			Exec: &corev1.ExecAction{
+				Command: []string{
+					"/bin/sh",
+					"-c",
+					`dolt --host 127.0.0.1 -u "$DOLT_USERNAME" -p "$DOLT_PASSWORD" --port 3306 --no-tls sql -q 'select current_timestamp();'`,
+				},
+			},
+		},
+		InitialDelaySeconds: 15,
+		PeriodSeconds:       10,
+	}
+}
+
+func doltLivenessProbe() *corev1.Probe {
+	return &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			Exec: &corev1.ExecAction{
+				Command: []string{
+					"/bin/sh",
+					"-c",
+					`dolt --host 127.0.0.1 -u "$DOLT_USERNAME" -p "$DOLT_PASSWORD" --port 3306 --no-tls sql -q 'select current_timestamp();'`,
+				},
+			},
+		},
+		InitialDelaySeconds: 20,
+		PeriodSeconds:       10,
 	}
 }
