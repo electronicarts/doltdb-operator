@@ -31,4 +31,4 @@ workflow:
     - make kustomize-ci
 test:
   extends: .make
-  script: make cluster && make tiltci
+  script: make tiltci
