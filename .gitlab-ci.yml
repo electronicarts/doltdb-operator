@@ -154,22 +154,22 @@ image:deploy:manual:
     - .deploy:manual
 
 # Only run when branch is non-protected and the project is not a fork and only on branches (not merge requests)
-chart:deploy:manual-harbor:
+chart:deploy:manual:
   extends:
-    - .chart-release-harbor
+    - .chart-release
     - .deploy:manual
 
 # Only run when branch is protected and the project is not a fork and only on branches or tags (not merge requests)
-chart:deploy-harbor:
+chart:deploy:
   extends:
-    - .chart-release-harbor
+    - .chart-release
   needs:
     # Since we template-in the image tag, make sure the image was able to be pushed first.
     - image:deploy
   rules:
     - if: $CI_COMMIT_REF_PROTECTED == "true"  && ($CI_COMMIT_BRANCH || $CI_COMMIT_TAG)
 
-.chart-release-harbor:
+.chart-release:
   stage: deploy
   image: docker.io/alpine/helm:3.8.2
   script:
