@@ -4,7 +4,7 @@
 
 set -e
 
-. hack/lib.sh
+. helm/lib.sh
 
 # Input variables.
 HELM_DOCS_VERSION="${HELM_DOCS_VERSION:-latest}"
@@ -28,7 +28,7 @@ echo "Comparing generated docs to actual docs"
 
 # Check that the generated docs and the actual docs match.
 docker run --rm -v "$(pwd):/project:ro" -v "$temp_volume:/generated" "$DOCKER_HUB_PROXY/alpine" \
-  /project/hack/compare_docs.sh /generated /project || {
+  /project/helm/compare_docs.sh /generated /project || {
   echo "❗❗ Docs need to be regenerated. Run 'make generate-docs'. ❗❗"
   exit 1
 }
