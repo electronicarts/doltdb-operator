@@ -91,17 +91,14 @@ endef
 
 .PHONY: tilt-ci
 tilt-ci:
-	OS=$(shell go env GOOS) && ARCH=$(shell go env GOARCH)
 	curl -fsSL https://github.com/tilt-dev/tilt/releases/download/v0.33.21/tilt.0.33.21.linux-alpine.x86_64.tar.gz | tar -xzv tilt && \
       mv tilt /usr/local/bin/tilt
 
 .PHONY: kustomize-ci
 kustomize-ci:
-	OS=$(shell go env GOOS) && ARCH=$(shell go env GOARCH)
 	curl -fsSL https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/v5.5.0/kustomize_v5.5.0_linux_amd64.tar.gz | tar -xzv kustomize && \
       mv kustomize /usr/local/bin/kustomize
 
 .PHONY: go-ci
 go-ci:
-	OS=$(shell go env GOOS) && ARCH=$(shell go env GOARCH)
 	curl -LO https://go.dev/dl/go1.23.3.linux-amd64.tar.gz && tar -C /usr/local -xvzf go1.23.3.linux-amd64.tar.gz

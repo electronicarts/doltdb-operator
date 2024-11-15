@@ -6,7 +6,6 @@ variables:
   HELM_VERSION: '3.16.2'
   GOLANG_VERSION: '1.23.2'
   KUBECTL_VERSION: '1.30.2'
-  # TODO(asnyder): Update version once https://github.com/norwoodj/helm-docs/pull/112 is merged/released.
   HELM_DOCS_VERSION: 'v1.14.2'
   CONFTEST_VERSION: '0.26.0'
   CHART_TESTING_VERSION: '3.4.0'
@@ -15,7 +14,7 @@ variables:
   DOCKER_HUB_PROXY: docker.io
   DOCKER_VERSION: 27
   LOCALHOST_DOCKER_ADDRESS: docker
-  HELM_PROJECT: "REDACTED" # This is the project name in Harbor for REDACTED TODO: Find out generic place.
+  HELM_PROJECT: "REDACTED"
   PROJECT_NUM: "135"
   HARBOR_REGISTRY: "REDACTED"
 default:
@@ -70,10 +69,8 @@ charts:test:
     - name: $DOCKER_HUB_PROXY/docker:$DOCKER_VERSION-dind
       alias: docker
   tags:
-    # Run on Kubernetes (currently in alpha)
-    # See: https://REDACTED
     - glaas-shared-k8s-dind
-  retry: 2 # The DinD runners frequently run into errors.
+  retry: 2
 
 .dind:
   extends: .dind-service
@@ -144,7 +141,7 @@ image:deploy:
   extends:
     - .image:deploy
   rules:
-    - if: $CI_COMMIT_REF_PROTECTED == "true" && $CI_PROJECT_NAMESPACE == "stellar" && ($CI_COMMIT_BRANCH || $CI_COMMIT_TAG)
+    - if: $CI_COMMIT_REF_PROTECTED == "true"  && ($CI_COMMIT_BRANCH || $CI_COMMIT_TAG)
 
 
 # Only run when branch is non-protected and the project is not a fork and only on branches (not merge requests)
