@@ -28,6 +28,8 @@ echo "Comparing generated docs to actual docs"
 
 # Check that the generated docs and the actual docs match.
 docker run --rm -v "$(pwd):/project:ro" -v "$temp_volume:/generated" "$DOCKER_HUB_PROXY/alpine" \
+  ls -ltr /project
+  ls -ltr /project/dolt-operator
   /project/dolt-operator/hack/helm/compare_docs.sh /generated /project || {
   echo "❗❗ Docs need to be regenerated. Run 'make generate-docs'. ❗❗"
   exit 1
