@@ -31,5 +31,5 @@ k8s_resource(
 k8s_yaml('hack/manifests/e2e/test-runner.yaml')
 k8s_resource(
   workload='dolt-operator-test-runner-job',
-  new_name='Test Runner Execution'
+  new_name='Test Runner Execution 1'
 )

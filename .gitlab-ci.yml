@@ -98,5 +98,8 @@ operator:test:
         - 'internal/*'
         - 'api/*'
         - 'pkg/*'
+        - 'config/*'
+        - 'Tiltfile'
+        - 'go.mod'
     # Trigger the tests for all other pipeline types.
     - if: $CI_PIPELINE_SOURCE != "merge_request_event"
