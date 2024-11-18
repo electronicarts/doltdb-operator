@@ -49,29 +49,6 @@ workflow:
         RELEASE_VERSION: v0.0.0-${CI_PIPELINE_ID}
         RELEASE_CHANNEL: edge
 
-## SUB PROJECT TEST JOBS ##
-
-# Since this project is structured as a monorepo, each sub-project directory defines its own jobs
-# which are triggered as child-pipelines.
-#
-# Trigger reference: https://docs.gitlab.com/ee/ci/yaml/index.html#trigger
-# Rules reference: https://docs.gitlab.com/ee/ci/yaml/index.html#rules
-
-charts:test:
-  trigger:
-    include:
-      - local: charts/.gitlab-ci.yml
-    strategy: depend
-  rules:
-    # In merge requests pipelines, only trigger the sub-project tests if there are code changes.
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      changes:
-        - 'charts/**/*'
-    # Trigger the tests for all other pipeline types.
-    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
-
-
-
 empty:test:
   image: ${DOCKER_HUB_PROXY}/alpine
   script: echo "Creating an empty job for no code changes (needed for gitlab pipeline to succeed in merge requests)"
@@ -94,14 +71,6 @@ empty:test:
   allow_failure: true
 
 
-# Only run when branch is protected and the project is not a fork and only on branches or tags (not merge requests)
-image:deploy:
-  extends:
-    - .image:deploy
-  rules:
-    - if: $CI_COMMIT_REF_PROTECTED == "true"  && ($CI_COMMIT_BRANCH || $CI_COMMIT_TAG)
-
-
 # Only run when branch is non-protected and the project is not a fork and only on branches (not merge requests)
 image:deploy:manual:
   extends:
@@ -114,15 +83,6 @@ chart:deploy:manual:
     - .chart-release
     - .deploy:manual
 
-# Only run when branch is protected and the project is not a fork and only on branches or tags (not merge requests)
-chart:deploy:
-  extends:
-    - .chart-release
-  needs:
-    # Since we template-in the image tag, make sure the image was able to be pushed first.
-    - image:deploy
-  rules:
-    - if: $CI_COMMIT_REF_PROTECTED == "true"  && ($CI_COMMIT_BRANCH || $CI_COMMIT_TAG)
 
 operator:test:
   trigger:
