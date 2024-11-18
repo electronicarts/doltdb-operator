@@ -24,6 +24,7 @@ variables:
   HELM_PROJECT: "REDACTED"
   PROJECT_NUM: "135"
   HARBOR_REGISTRY: "REDACTED"
+  SERVICE_NAME: "dolt-operator"
 default:
   tags:
     - glaas-shared-k8s-dind
@@ -70,19 +71,6 @@ charts:test:
     - if: $CI_PIPELINE_SOURCE != "merge_request_event"
 
 
-## ROOT TEST JOBS ##
-.dind-service:
-  services:
-    - name: $DOCKER_HUB_PROXY/docker:$DOCKER_VERSION-dind
-      alias: docker
-  tags:
-    - glaas-shared-k8s-dind
-  retry: 2
-
-.dind:
-  extends: .dind-service
-  image: $DOCKER_HUB_PROXY/docker:$DOCKER_VERSION
-
 
 empty:test:
   image: ${DOCKER_HUB_PROXY}/alpine
@@ -98,43 +86,6 @@ empty:test:
         - 'charts/**/*'
       when: never
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-
-.chart:deploy:
-  stage: deploy
-  extends:
-    - .dind
-  before_script:
-    - apk add -q make
-  script:
-    - echo "Release Version=$RELEASE_VERSION, Release Channel=$RELEASE_CHANNEL, Branch=$CI_COMMIT_BRANCH, Protected=$CI_COMMIT_REF_PROTECTED"
-    - cd charts
-    # Template-in the release variables for the operator image.
-    - sed -i
-      -e "s|%%image_tag%%|${RELEASE_VERSION}|g"
-      -e "s|%%image_repository%%|${HARBOR_REGISTRY}/${HELM_PROJECT}/dolt-operator|g"
-      ./dolt-operator/values.yaml
-    # Re-run the README generation for the new values.
-    - make generate-docs
-    # Package the chart.
-    - docker run --rm -v "$(pwd):/project" -w /project ${DOCKER_HUB_PROXY}/alpine/helm:${HELM_VERSION}
-      package dolt-operator --version $RELEASE_VERSION
-    # Upload the chart to the GitLab Helm package registry.
-    - apk add -q curl
-
-
-
-
-.image:deploy:
-  stage: deploy
-  extends:
-    - .dind
-  script:
-    - echo "Release Version=$RELEASE_VERSION, Release Channel=$RELEASE_CHANNEL, Branch=$CI_COMMIT_BRANCH, Protected=$CI_COMMIT_REF_PROTECTED"
-    - REPOSITORY=${HARBOR_REGISTRY}/${HELM_PROJECT}/dolt-operator
-    - echo "$HARBOR_PASSWORD" | docker login ${HARBOR_REGISTRY} -u "$HARBOR_USERNAME" --password-stdin
-    - docker build -t $REPOSITORY:$RELEASE_VERSION -t $REPOSITORY:latest --build-arg GOLANG_VERSION --build-arg DOCKER_HUB_PROXY .
-    - docker push ${HARBOR_REGISTRY}/${HELM_PROJECT}/dolt-operator:$RELEASE_VERSION
-    - docker push ${HARBOR_REGISTRY}/${HELM_PROJECT}/dolt-operator:latest
 
 .deploy:manual:
   rules:
@@ -172,20 +123,6 @@ chart:deploy:
     - image:deploy
   rules:
     - if: $CI_COMMIT_REF_PROTECTED == "true"  && ($CI_COMMIT_BRANCH || $CI_COMMIT_TAG)
-
-.chart-release:
-  stage: deploy
-  image: docker.io/alpine/helm:3.8.2
-  script:
-    - echo "Release Version=$RELEASE_VERSION, Release Channel=$RELEASE_CHANNEL, Branch=$CI_COMMIT_BRANCH, Protected=$CI_COMMIT_REF_PROTECTED"
-    - apk add --no-cache git bash
-    - helm plugin install https://github.com/chartmuseum/helm-push
-    - echo "$HARBOR_PASSWORD" | helm repo add ${HELM_PROJECT} https://${HARBOR_REGISTRY}/chartrepo/${HELM_PROJECT} --username "$HARBOR_USERNAME" --password-stdin
-    - cd charts
-    - helm package dolt-operator --version $RELEASE_VERSION
-    - helm cm-push dolt-operator-${RELEASE_VERSION}.tgz ${HELM_PROJECT}
-  before_script:
-    - echo "Running the release job."
 
 operator:test:
   trigger:
