@@ -27,10 +27,8 @@ docker run --rm -v "$temp_volume:/helm-docs" "$DOCKER_HUB_PROXY/${HELM_DOCS_REPO
 echo "Comparing generated docs to actual docs"
 
 # Check that the generated docs and the actual docs match.
-docker run --rm -v "$(pwd):/project:ro" -v "$temp_volume:/generated" "$DOCKER_HUB_PROXY/alpine" \
-  ls -ltr /project
-  ls -ltr /project/dolt-operator
-  /project/dolt-operator/hack/helm/compare_docs.sh /generated /project || {
+docker run --rm -v "$(dirname $(pwd)):/project:ro" -v "$temp_volume:/generated" "$DOCKER_HUB_PROXY/alpine" \
+  /project/hack/helm/compare_docs.sh /generated /project/charts || {
   echo "❗❗ Docs need to be regenerated. Run 'make generate-docs'. ❗❗"
   exit 1
 }
