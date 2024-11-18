@@ -4,7 +4,7 @@
 
 set -e
 
-. lib.sh
+. hack/helm/lib.sh
 
 # Input variables.
 HELM_DOCS_VERSION="${HELM_DOCS_VERSION:-latest}"
