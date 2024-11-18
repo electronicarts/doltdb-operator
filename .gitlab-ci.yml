@@ -4,7 +4,7 @@ include:
     ref: main
     file: '/mr-tools.yml'
   - project: "REDACTED"
-    ref: feature/amalpani/deployment-ci
+    ref: main
     file: "/deployment-common.yml"
 
 variables:
