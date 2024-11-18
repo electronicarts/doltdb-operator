@@ -8,6 +8,8 @@ A Helm chart for Kubernetes deployment of Dolt operator
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
+| containerArgs[0] | string | `"--leader-elect"` |  |
+| deploymentAnnotations."sidecar.istio.io/inject" | string | `"false"` |  |
 | fullnameOverride | string | `""` |  |
 | image.pullPolicy | string | `"IfNotPresent"` |  |
 | image.repository | string | `"%%image_repository%%"` |  |
