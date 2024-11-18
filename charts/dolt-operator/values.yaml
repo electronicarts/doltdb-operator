@@ -7,6 +7,11 @@ image:
   pullPolicy: IfNotPresent
   tag: "%%image_tag%%"
 
+containerArgs:
+  - --leader-elect
+deploymentAnnotations:
+  sidecar.istio.io/inject: "false"
+
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""

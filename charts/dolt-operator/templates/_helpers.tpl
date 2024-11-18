@@ -60,3 +60,12 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{/*
+Create the annotation for the deployment object
+*/}}
+{{- define "dolt-operator.deploymentAnnotations" -}}
+{{- range $key, $value := .Values.deploymentAnnotations }}
+{{ $key }}: {{ $value | quote }}
+{{- end }}
+{{- end }}

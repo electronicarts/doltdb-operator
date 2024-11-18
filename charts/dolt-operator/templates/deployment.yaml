@@ -12,7 +12,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/inject: "false"
+        {{- include "dolt-operator.deploymentAnnotations" . | nindent 8 }}
       labels:
         {{- include "dolt-operator.selectorLabels" . | nindent 8 }}
     spec:
@@ -27,7 +27,9 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | required "image.tag is required" }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
-            - --leader-elect
+          {{- range .Values.containerArgs }}
+          - {{ . }}
+          {{- end }}
           env:
             - name: DOLT_OPERATOR_NAMESPACE
               valueFrom:
