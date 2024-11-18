@@ -92,12 +92,12 @@ endef
 .PHONY: tilt-ci
 tilt-ci:
 	curl -fsSL https://github.com/tilt-dev/tilt/releases/download/v0.33.21/tilt.0.33.21.linux-alpine.x86_64.tar.gz | tar -xzv tilt && \
-      mv tilt /usr/local/bin/tilt
+    mv tilt /usr/local/bin/tilt
 
 .PHONY: kustomize-ci
 kustomize-ci:
 	curl -fsSL https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/v5.5.0/kustomize_v5.5.0_linux_amd64.tar.gz | tar -xzv kustomize && \
-      mv kustomize /usr/local/bin/kustomize
+    mv kustomize /usr/local/bin/kustomize
 
 .PHONY: go-ci
 go-ci:
