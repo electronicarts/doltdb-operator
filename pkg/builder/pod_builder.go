@@ -13,7 +13,7 @@ func doltVolumes(doltdb *doltv1alpha.DoltDB) []corev1.Volume {
 
 	return []corev1.Volume{
 		{
-			Name: doltdb.DefaultConfigMapKey().Name,
+			Name: DoltConfigVolume,
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					LocalObjectReference: configMapKeyRef.LocalObjectReference,
