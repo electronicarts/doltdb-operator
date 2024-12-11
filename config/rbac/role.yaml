@@ -18,6 +18,13 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - endpoints
+  - persistentvolumeclaims
+  verbs:
+  - list
+- apiGroups:
+  - ""
+  resources:
   - events
   - serviceaccounts
   - services
@@ -26,12 +33,6 @@ rules:
   - list
   - patch
   - watch
-- apiGroups:
-  - ""
-  resources:
-  - persistentvolumeclaims
-  verbs:
-  - list
 - apiGroups:
   - ""
   resources:
