@@ -19,9 +19,12 @@ rules:
   - ""
   resources:
   - endpoints
-  - persistentvolumeclaims
   verbs:
+  - create
+  - delete
+  - get
   - list
+  - update
 - apiGroups:
   - ""
   resources:
@@ -33,6 +36,12 @@ rules:
   - list
   - patch
   - watch
+- apiGroups:
+  - ""
+  resources:
+  - persistentvolumeclaims
+  verbs:
+  - list
 - apiGroups:
   - ""
   resources:

@@ -38,8 +38,14 @@ manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and Cust
 	! test -d config/samples || cp config/samples/* charts/dolt-operator/samples
 	@# Clean the generated directory.
 	rm -rf charts/dolt-operator/generated
-	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
-	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=charts/dolt-operator/generated/crd \
+
+	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." \
+	output:crd:artifacts:config=config/crd/bases \
+	output:rbac:artifacts:config=config/rbac \
+	output:webhook:artifacts:config=config/webhook
+
+	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." 
+	output:crd:artifacts:config=charts/dolt-operator/generated/crd \
 	output:rbac:artifacts:config=charts/dolt-operator/generated/rbac \
 	output:webhook:artifacts:config=charts/dolt-operator/generated/webhook \
 
