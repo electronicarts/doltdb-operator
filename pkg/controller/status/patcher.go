@@ -9,6 +9,8 @@ import (
 
 type PatcherDoltDB func(*doltv1alpha.DoltDBStatus) error
 
+type PatcherVolumeSnapshot func(*doltv1alpha.SnapshotStatus) error
+
 func PatchStatus(ctx context.Context, r client.Client, doltdb *doltv1alpha.DoltDB, patcher PatcherDoltDB) error {
 	patch := client.MergeFrom(doltdb.DeepCopy())
 	if err := patcher(&doltdb.Status); err != nil {

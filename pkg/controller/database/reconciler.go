@@ -86,7 +86,7 @@ func (r *SqlReconciler) Reconcile(ctx context.Context, resource Resource) (ctrl.
 		return ctrl.Result{}, fmt.Errorf("error getting DoltDB: %v", errBundle)
 	}
 
-	if result, err := waitForDoltDB(ctx, r.Client, doltdb, r.LogSql); !result.IsZero() || err != nil {
+	if result, err := WaitForDoltDB(ctx, r.Client, doltdb, r.LogSql); !result.IsZero() || err != nil {
 		var errBundle *multierror.Error
 
 		if err != nil {
@@ -172,7 +172,7 @@ func (r *SqlReconciler) requeueResult(ctx context.Context, resource Resource, er
 	return ctrl.Result{}, nil
 }
 
-func waitForDoltDB(ctx context.Context, client client.Client, doltdb *doltv1alpha.DoltDB,
+func WaitForDoltDB(ctx context.Context, client client.Client, doltdb *doltv1alpha.DoltDB,
 	logSql bool) (ctrl.Result, error) {
 	healthy, err := health.IsStatefulSetHealthy(
 		ctx,

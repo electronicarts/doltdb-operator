@@ -2,6 +2,7 @@
 resources:
 - k8s.dolthub.com_v1alpha_doltdb.yaml
 - k8s.dolthub.com_v1alpha_database.yaml
+- k8s.dolthub.com_v1alpha_snapshot.yaml
 - k8s.dolthub.com_v1alpha_user.yaml
 - k8s.dolthub.com_v1alpha_grant.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

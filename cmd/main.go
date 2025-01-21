@@ -25,6 +25,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/electronicarts/doltdb-operator/pkg/controller/volumesnapshot"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -43,7 +45,6 @@ import (
 	ctrlcontroller "sigs.k8s.io/controller-runtime/pkg/controller"
 
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
-	k8sdolthubcomv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
 	"github.com/electronicarts/doltdb-operator/internal/controller"
 	"github.com/electronicarts/doltdb-operator/pkg/builder"
 	"github.com/electronicarts/doltdb-operator/pkg/conditions"
@@ -69,7 +70,6 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(doltv1alpha.AddToScheme(scheme))
-	utilruntime.Must(k8sdolthubcomv1alpha.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -188,6 +188,7 @@ func main() {
 	// controllers
 	rbacReconciler := rbac.NewReconciler(client, builder)
 	configMapReconciler := configmap.NewReconciler(client, builder)
+	volumeSnapshotReconciler := volumesnapshot.NewReconciler(client, builder)
 	serviceReconciler := service.NewReconciler(client)
 	statefulSetReconciler := statefulset.NewReconciler(client, refResolver, builder)
 	statusReconciler := status.NewReconciler(client, refResolver)
@@ -243,6 +244,18 @@ func main() {
 
 	if err = podReplicationController.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Unable to create controller", "controller", "PodReplication")
+		os.Exit(1)
+	}
+
+	if err = (&controller.SnapshotReconciler{
+		Client:                   client,
+		Scheme:                   scheme,
+		Builder:                  builder,
+		RefResolver:              refResolver,
+		VolumeSnapshotReconciler: volumeSnapshotReconciler,
+		ConditionReady:           conditionReady,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Snapshot")
 		os.Exit(1)
 	}
 

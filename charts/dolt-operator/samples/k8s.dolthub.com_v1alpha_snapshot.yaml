@@ -1,0 +1,13 @@
+apiVersion: k8s.dolthub.com/v1alpha
+kind: Snapshot
+metadata:
+  labels:
+    app.kubernetes.io/name: dolt-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: dolt
+  namespace: default
+spec:
+  doltDBRef:
+    name: dolt
+    namespace: default
+  frequencySchedule: "* * * * *"

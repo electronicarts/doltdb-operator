@@ -16,7 +16,7 @@ local_resource('Install CRDs', cmd='make install', deps=['Makefile', 'make/*'])
 
 docker_build('localhost:5000/dolt-operator-test-runner', '.', dockerfile="Dockerfile.dev")
 
-k8s_yaml(['hack/manifests/e2e/cluster-role.yaml', 'hack/manifests/storageclass.yaml'])
+k8s_yaml(['hack/manifests/e2e/cluster-role.yaml', 'hack/manifests/storageclass.yaml', 'hack/manifests/e2e/snapshot.storage.k8s.io_volumesnapshots.yaml'])
 k8s_resource(
   objects=[
     'standard-resize:storageclass',

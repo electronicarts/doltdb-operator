@@ -22,6 +22,8 @@ resources:
 # default, aiding admins in cluster management. Those roles are
 # not used by the Project itself. You can comment the following lines
 # if you do not want those helpers be installed with your Project.
+- snapshot_editor_role.yaml
+- snapshot_viewer_role.yaml
 - grant_editor_role.yaml
 - grant_viewer_role.yaml
 - user_editor_role.yaml

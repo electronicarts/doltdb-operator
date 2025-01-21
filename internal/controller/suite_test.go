@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"github.com/electronicarts/doltdb-operator/pkg/controller/volumesnapshot"
 	"testing"
 	"time"
 
@@ -85,7 +86,6 @@ var _ = BeforeSuite(func() {
 		},
 		BearerTokenFile: "/var/run/secrets/kubernetes.io/serviceaccount/token",
 	}
-
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 	err = doltv1alpha.AddToScheme(scheme.Scheme)
@@ -124,6 +124,7 @@ var _ = BeforeSuite(func() {
 	statusReconciler := status.NewReconciler(client, refResolver)
 	storageReconciler := storage.NewReconciler(client, statefulSetReconciler)
 	replConfig := replication.NewReplicationConfig(client, builder)
+	volumeSnapshotReconciler := volumesnapshot.NewReconciler(client, builder)
 	replicationReconciler, err := replication.NewReconciler(
 		client,
 		replRecorder,
@@ -195,6 +196,15 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	err = podReconciler.SetupWithManager(k8sManager)
+	Expect(err).ToNot(HaveOccurred())
+	err = (&SnapshotReconciler{
+		Client:                   k8sClient,
+		Scheme:                   k8sClient.Scheme(),
+		ConditionReady:           conditionReady,
+		RefResolver:              refResolver,
+		VolumeSnapshotReconciler: volumeSnapshotReconciler,
+		Builder:                  builder,
+	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
 	go func() {

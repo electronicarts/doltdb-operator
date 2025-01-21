@@ -32,6 +32,15 @@ resources:
   controller: true
   domain: REDACTED
   group: k8s.dolthub.com
+  kind: Snapshot
+  path: github.com/electronicarts/doltdb-operator/api/v1alpha
+  version: v1alpha
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: REDACTED
+  group: k8s.dolthub.com
   kind: User
   path: github.com/electronicarts/doltdb-operator/api/v1alpha
   version: v1alpha

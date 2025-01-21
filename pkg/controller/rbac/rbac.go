@@ -3,6 +3,7 @@ package rbac
 import (
 	"context"
 	"fmt"
+	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
 	"strings"
 
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
@@ -119,6 +120,17 @@ func (r *Reconciler) reconcileRole(ctx context.Context, key types.NamespacedName
 			},
 			Verbs: []string{
 				"get",
+			},
+		},
+		{
+			APIGroups: []string{
+				volumesnapshotv1.GroupName,
+			},
+			Resources: []string{
+				"volumesnapshots",
+			},
+			Verbs: []string{
+				"get", "list", "watch", "create", "update", "patch", "delete",
 			},
 		},
 	}

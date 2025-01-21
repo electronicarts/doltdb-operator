@@ -66,7 +66,7 @@ func (tf *SqlFinalizer) Finalize(ctx context.Context, resource Resource) (ctrl.R
 		return ctrl.Result{}, fmt.Errorf("error getting doltdb: %v", err)
 	}
 
-	if result, err := waitForDoltDB(ctx, tf.Client, doltdb, tf.LogSql); !result.IsZero() || err != nil {
+	if result, err := WaitForDoltDB(ctx, tf.Client, doltdb, tf.LogSql); !result.IsZero() || err != nil {
 		return result, err
 	}
 

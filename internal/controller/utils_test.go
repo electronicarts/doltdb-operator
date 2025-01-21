@@ -40,6 +40,16 @@ var (
 		Namespace: testDoltKey.Namespace,
 	}
 
+	testDoltDBVolumeSnapshotKey = types.NamespacedName{
+		Name:      "dolt-volume-snapshot",
+		Namespace: testDoltKey.Namespace,
+	}
+
+	testDoltDBVolumeSnapshotCronjobKey1 = types.NamespacedName{
+		Name:      "dolt",
+		Namespace: testDoltKey.Namespace,
+	}
+
 	testDatabaseKey = types.NamespacedName{
 		Name:      "dolt-database-create-test",
 		Namespace: testDoltKey.Namespace,
