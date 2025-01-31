@@ -84,6 +84,8 @@ func (r *ReplicationReconciler) Reconcile(ctx context.Context, doltdb *doltv1alp
 		clientSet := NewReplicationClientSet(doltdb, r.refResolver)
 		defer clientSet.close()
 
+		switchoverLogger.V(0).Info("Reconciling switchover")
+
 		req := reconcileRequest{
 			doltdb:    doltdb,
 			key:       doltdbKey,
@@ -91,6 +93,8 @@ func (r *ReplicationReconciler) Reconcile(ctx context.Context, doltdb *doltv1alp
 		}
 		return ctrl.Result{}, r.reconcileSwitchover(ctx, &req, switchoverLogger)
 	}
+
+	logger.V(0).Info("Reconciling replication")
 
 	healthy, err := health.IsStatefulSetHealthy(
 		ctx,

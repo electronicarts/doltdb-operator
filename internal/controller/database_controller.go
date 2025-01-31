@@ -115,16 +115,16 @@ func (wr *wrappedDatabaseReconciler) Reconcile(ctx context.Context, doltdbClient
 	}
 	log := log.FromContext(ctx)
 
-	log.V(1).Info("Creating database", "database", wr.database.Name())
+	log.V(0).Info("Creating database", "database", wr.database.Name())
 	if err := doltdbClient.CreateDatabase(ctx, wr.database.Name(), opts); err != nil {
 		return fmt.Errorf("error creating database in DoltDB: %v", err)
 	}
 
-	log.V(1).Info("Setting database session", "database", wr.database.Name())
+	log.V(0).Info("Setting database session", "database", wr.database.Name())
 	if err := doltdbClient.UseDatabase(ctx, wr.database.Name()); err != nil {
 		return fmt.Errorf("error calling use database in DoltDB: %v", err)
 	}
-	log.V(1).Info("Creating dolt ignore", "patterns", wr.database.Spec.DoltIgnorePatterns)
+	log.V(0).Info("Creating dolt ignore", "patterns", wr.database.Spec.DoltIgnorePatterns)
 	if err := doltdbClient.CreateDoltIgnore(
 		ctx,
 		wr.database.Spec.DoltIgnorePatterns,
@@ -132,7 +132,7 @@ func (wr *wrappedDatabaseReconciler) Reconcile(ctx context.Context, doltdbClient
 		return fmt.Errorf("error creating dolt_ignore in DoltDB: %v", err)
 	}
 
-	log.V(1).Info("Creating branches", "branches", wr.database.Spec.SystemBranches)
+	log.V(0).Info("Creating branches", "branches", wr.database.Spec.SystemBranches)
 	// The order of these operations is important because
 	// CreateBranches causes side effects on the database connections
 	// as explained here: https://docs.dolthub.com/sql-reference/version-control/dolt-sql-procedures#dolt_checkout

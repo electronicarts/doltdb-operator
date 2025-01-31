@@ -75,7 +75,8 @@ tiltdev:
 	tilt up -f Tiltfile.dev
 
 .PHONY: tilttest
-tilttest: cluster-ctx
+tilttest:
+	make cluster-ci CLUSTER=dolttest cluster-ctx CLUSTER=dolttest
 	tilt up
 
 .PHONY: tiltci

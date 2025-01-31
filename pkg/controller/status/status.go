@@ -137,6 +137,10 @@ func (r *Reconciler) getReplicationStatusAndEpoch(ctx context.Context,
 				continue
 			}
 		}
+		if dbstate.Role == "" {
+			logger.V(0).Info("doltdb role not set, skipping", "pod", podName)
+			continue
+		}
 
 		if dbstate.Epoch > highestEpoch && dbstate.Epoch > ptr.Deref(doltdb.Status.ReplicationEpoch, 0) {
 			highestEpoch = dbstate.Epoch
@@ -157,7 +161,7 @@ func (r *Reconciler) getReplicationStatusAndEpoch(ctx context.Context,
 		if dbstate.Role == dolt.PrimaryRoleValue.String() {
 			// If there's more than one primary, we need to reconcile, marking pod replication status as broken
 			if doltdb.Status.CurrentPrimary != nil && *doltdb.Status.CurrentPrimary != podName {
-				logger.V(1).Info("more than 1 primary", "pod", podName, "state", dbstate, "currentPrimary", *doltdb.Status.CurrentPrimary)
+				logger.V(2).Info("more than 1 primary", "pod", podName, "state", dbstate, "currentPrimary", *doltdb.Status.CurrentPrimary)
 				continue
 			}
 			state = doltv1alpha.ReplicationStatePrimary

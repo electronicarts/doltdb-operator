@@ -1,8 +1,8 @@
 # GitLab CI yaml reference: https://docs.gitlab.com/ee/ci/yaml/index.html
 include:
-  - project: 'eadp-common/dangerbot'
+  - project: "eadp-common/dangerbot"
     ref: main
-    file: '/mr-tools.yml'
+    file: "/mr-tools.yml"
   - project: "REDACTED"
     ref: main
     file: "/deployment-common.yml"
@@ -10,13 +10,13 @@ include:
 variables:
   # Tooling versions for CI builds.
   # These versions should be driven down through all Makefiles, scripts, and Dockerfiles.
-  HELM_VERSION: '3.16.2'
-  GOLANG_VERSION: '1.23'
-  KUBECTL_VERSION: '1.30.2'
-  HELM_DOCS_VERSION: 'v1.14.2'
-  CONFTEST_VERSION: '0.26.0'
-  CHART_TESTING_VERSION: '3.4.0'
-  GOLANGCI_LINT_VERSION: '1.60.3'
+  HELM_VERSION: "3.16.2"
+  GOLANG_VERSION: "1.23"
+  KUBECTL_VERSION: "1.30.2"
+  HELM_DOCS_VERSION: "v1.14.2"
+  CONFTEST_VERSION: "0.26.0"
+  CHART_TESTING_VERSION: "3.4.0"
+  GOLANGCI_LINT_VERSION: "1.60.3"
   # Other variables.
   DOCKER_HUB_PROXY: docker.io
   DOCKER_VERSION: 27
@@ -62,17 +62,17 @@ operator:test:
     # In merge requests pipelines, only trigger the sub-project tests if there are code changes.
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
-        - 'api/*'
-        - 'cmd/*'
-        - 'internal/*'
-        - 'pkg/*'
-        - 'hack/*'
-        - 'config/*'
-        - 'Tiltfile'
-        - 'go.mod'
+        - "api/**/*"
+        - "cmd/**/*"
+        - "internal/**/*"
+        - "pkg/**/*"
+        - "hack/**/*"
+        - "config/**/*"
+        - "Tiltfile"
+        - "go.mod"
+        - "go.sum"
     # Trigger the tests for all other pipeline types.
     - if: $CI_PIPELINE_SOURCE != "merge_request_event"
-
 # Only run when branch is non-protected and the project is not a fork and only on branches (not merge requests)
 image:deploy:manual:
   extends:

@@ -213,7 +213,7 @@ var _ = Describe("DoltDB Replication Controller", Ordered, func() {
 				return apierrors.IsNotFound(err)
 			}
 			return k8sClient.Delete(ctx, &primaryPod) == nil
-		}, 20*time.Second, testInterval).Should(BeTrue())
+		}, 10*time.Second, testInterval).Should(BeTrue())
 
 		By("Expecting DoltDB to be ready eventually")
 		Eventually(func() bool {

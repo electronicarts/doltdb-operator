@@ -35,15 +35,18 @@ type gracefulFailoverPhase struct {
 	reconcile func(context.Context, *doltv1alpha.DoltDB, *ReplicationClientSet, *doltClusterContext, logr.Logger) error
 }
 
-func shouldReconcileSwitchover(doltdb *doltv1alpha.DoltDB) bool {
-	if doltdb.IsUpdating() || doltdb.IsResizingStorage() {
+func shouldReconcileSwitchover(logger logr.Logger, doltdb *doltv1alpha.DoltDB) bool {
+	if doltdb.IsResizingStorage() {
+		logger.V(0).Info("skipping switchover, DoltDB is resizing storage")
 		return false
 	}
 	if doltdb.Status.CurrentPrimaryPodIndex == nil {
+		logger.V(0).Info("skipping switchover, 'status.currentPrimaryPodIndex' must be set")
 		return false
 	}
 	currentPodIndex := ptr.Deref(doltdb.Status.CurrentPrimaryPodIndex, 0)
 	desiredPodIndex := ptr.Deref(doltdb.Replication().Primary.PodIndex, 0)
+	logger.V(0).Info("checking if switchover is needed", "currentPodIndex", currentPodIndex, "desiredPodIndex", desiredPodIndex)
 	return currentPodIndex != desiredPodIndex
 }
 
@@ -54,7 +57,7 @@ func (r *ReplicationReconciler) reconcileSwitchover(ctx context.Context, req *re
 
 	dbstates := GetDBStates(ctx, req.doltdb, req.clientSet)
 
-	if !shouldReconcileSwitchover(req.doltdb) {
+	if !shouldReconcileSwitchover(logger, req.doltdb) {
 		return nil
 	}
 
