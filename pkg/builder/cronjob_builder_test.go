@@ -1,6 +1,7 @@
 package builder
 
 import (
+	"github.com/stretchr/testify/assert"
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -18,7 +19,9 @@ func TestBuildCronJob(t *testing.T) {
 			"app.kubernetes.io/name":   "doltdb",
 			"pvc.k8s.dolthub.com/role": "dolt-data",
 		},
-		Annotations: map[string]string{},
+		Annotations: map[string]string{
+			"sidecar.istio.io/inject": "false",
+		},
 	}
 
 	tests := []struct {
@@ -36,7 +39,9 @@ func TestBuildCronJob(t *testing.T) {
 						"app.kubernetes.io/name":   "doltdb",
 						"pvc.k8s.dolthub.com/role": "dolt-data",
 					},
-					Annotations: map[string]string{},
+					Annotations: map[string]string{
+						"sidecar.istio.io/inject": "false",
+					},
 				},
 				Key: types.NamespacedName{
 					Name:      "doltdb-snapshot",
@@ -59,13 +64,26 @@ func TestBuildCronJob(t *testing.T) {
 						"app.kubernetes.io/name":   "",
 						"pvc.k8s.dolthub.com/role": "dolt-data",
 					},
-					Annotations: map[string]string{},
+					Annotations: map[string]string{
+						"sidecar.istio.io/inject": "false",
+					},
 				},
 				Spec: batchv1.CronJobSpec{
 					Schedule: "* * * * *",
 					JobTemplate: batchv1.JobTemplateSpec{
 						Spec: batchv1.JobSpec{
 							Template: corev1.PodTemplateSpec{
+								ObjectMeta: metav1.ObjectMeta{
+									Name:      "doltdb-snapshot",
+									Namespace: "test",
+									Labels: map[string]string{
+										"app.kubernetes.io/name":   "doltdb",
+										"pvc.k8s.dolthub.com/role": "dolt-data",
+									},
+									Annotations: map[string]string{
+										"sidecar.istio.io/inject": "false",
+									},
+								},
 								Spec: corev1.PodSpec{
 									ServiceAccountName: "doltdb-snapshot",
 									Containers: []corev1.Container{
@@ -112,6 +130,8 @@ func TestBuildCronJob(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error building Volumesnapshot: %v", err)
 			}
+
+			assert.Equal(t, cronjob.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Command, tt.wantCronJob.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Command, "The pod command should be equal")
 			if !reflect.DeepEqual(cronjob.Spec, tt.wantCronJob.Spec) {
 				if !reflect.DeepEqual(cronjob.Spec.Schedule, tt.wantCronJob.Spec.Schedule) {
 					t.Errorf("CronJob.Spec = %v, want %v", cronjob.Spec, tt.wantCronJob.Spec)

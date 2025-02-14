@@ -10,6 +10,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+const (
+	ConfigmapKey = "dolt.yaml"
+)
+
 // CronJobOpts holds the options for building a CronJob.
 type CronJobOpts struct {
 	Metadata      *metav1.ObjectMeta
@@ -35,6 +39,7 @@ func (b *Builder) BuildCronJob(options CronJobOpts, doltdb *doltv1alpha.DoltDB, 
 		JobTemplate: batchv1.JobTemplateSpec{
 			Spec: batchv1.JobSpec{ // Use batchv1.JobSpec here
 				Template: corev1.PodTemplateSpec{ // Define the PodTemplateSpec
+					ObjectMeta: objMeta, // Set the metadata
 					Spec: corev1.PodSpec{ // Define the PodSpec
 						ServiceAccountName: doltdb.ServiceAccountKey().Name,
 						ImagePullSecrets:   snapshot.Spec.ImagePullSecrets,
@@ -79,7 +84,7 @@ func buildContainerSpec(options CronJobOpts, snapshot doltv1alpha.Snapshot) []co
 			Command: []string{
 				"/bin/sh",
 				"-c",
-				"export DATE=$(date +%s) && envsubst < /tmp/dolt.yaml | kubectl apply -f -",
+				"export DATE=$(date +%s) && envsubst < /tmp/" + ConfigmapKey + " | kubectl apply -f -",
 			},
 			VolumeMounts: []corev1.VolumeMount{
 				{

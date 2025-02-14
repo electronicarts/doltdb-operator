@@ -109,7 +109,8 @@ func jsonToYamlMarshal(snapshot builder.VolumeSnapshot, err error) ([]byte, erro
 func buildOrPatchConfigMap(ctx context.Context, req *ReconcileRequest, yamlData []byte, pvcName string, err error, r *Reconciler) (*corev1.ConfigMap, error) {
 	// Create a ConfigMap for the VolumeSnapshot
 	data := make(map[string]string)
-	data[fmt.Sprintf("%s.yaml", req.Metadata.Name)] = string(yamlData)
+
+	data[builder.ConfigmapKey] = string(yamlData)
 	optsCM := builder.ConfigMapOpts{
 		Metadata: req.Metadata,
 		Key:      req.SubOwner.ConfigMapKey(pvcName),
