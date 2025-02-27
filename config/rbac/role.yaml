@@ -42,7 +42,11 @@ rules:
   resources:
   - persistentvolumeclaims
   verbs:
+  - create
+  - get
   - list
+  - patch
+  - watch
 - apiGroups:
   - ""
   resources:
@@ -98,6 +102,7 @@ rules:
   - list
   - patch
   - update
+  - watch
 - apiGroups:
   - batch
   resources:

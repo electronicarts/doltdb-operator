@@ -85,7 +85,7 @@ type reconcilePhaseDoltDB struct {
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=list;watch;create;patch
 // +kubebuilder:rbac:groups="",resources=pods,verbs=get;patch;delete
 // +kubebuilder:rbac:groups="",resources=pods/log,verbs=get
-// +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=list
+// +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=list;get;watch;patch;create
 // +kubebuilder:rbac:groups="",resources=events,verbs=list;watch;create;patch
 // +kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=list;watch;create;patch
 // +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete

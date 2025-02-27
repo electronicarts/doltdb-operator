@@ -47,7 +47,7 @@ type SnapshotReconciler struct {
 // +kubebuilder:rbac:groups=k8s.dolthub.com,resources=snapshots/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=snapshot.storage.k8s.io,resources=volumesnapshots,verbs=get;list;watch;create;patch;update;delete
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;patch;delete
-// +kubebuilder:rbac:groups=batch,resources=cronjobs,verbs=get;list;create;update;delete;patch
+// +kubebuilder:rbac:groups=batch,resources=cronjobs,verbs=get;list;create;update;delete;patch;watch
 // +kubebuilder:rbac:groups=batch,resources=cronjobs/status,verbs=get;update
 // +kubebuilder:rbac:groups=batch,resources=cronjobs/finalizers,verbs=update
 
