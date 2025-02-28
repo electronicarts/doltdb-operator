@@ -110,7 +110,7 @@ func (r *ReplicationReconciler) reconcileSwitchover(ctx context.Context, req *re
 
 	if err := r.patchStatus(ctx, req.doltdb, func(status *doltv1alpha.DoltDBStatus) {
 		status.UpdateCurrentPrimary(req.doltdb, *toIndex)
-		status.UpdateReplicationEpoch(req.doltdb, doltDBCtx.nextEpoch)
+		status.UpdateReplicationEpoch(doltDBCtx.nextEpoch)
 		conditions.SetPrimarySwitched(&req.doltdb.Status)
 		metrics.DoltDBCurrentPrimaryIndex.WithLabelValues(req.doltdb.Name, req.doltdb.Namespace).Set(float64(*toIndex))
 		metrics.DoltDBReplicationSwitchOvers.WithLabelValues(req.doltdb.Name, req.doltdb.Namespace).Inc()

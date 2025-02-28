@@ -15,9 +15,9 @@ const (
 // VolumeSnapshot represents a VolumeSnapshot CR.
 type VolumeSnapshot struct {
 	APIVersion         string             `json:"apiVersion" yaml:"apiVersion"`
-	Kind               string             `json:"kind" yaml:"kind"`
-	Metadata           metav1.ObjectMeta  `json:"metadata" yaml:"metadata"`
-	VolumeSnapshotSpec VolumeSnapshotSpec `json:"spec" yaml:"spec"`
+	Kind               string             `json:"kind"       yaml:"kind"`
+	Metadata           metav1.ObjectMeta  `json:"metadata"   yaml:"metadata"`
+	VolumeSnapshotSpec VolumeSnapshotSpec `json:"spec"       yaml:"spec"`
 }
 
 // Source represents the source of the VolumeSnapshot.
@@ -28,7 +28,7 @@ type Source struct {
 // VolumeSnapshotSpec represents the spec of the VolumeSnapshot.
 type VolumeSnapshotSpec struct {
 	VolumeSnapshotClassName string `json:"volumeSnapshotClassName" yaml:"volumeSnapshotClassName"`
-	Source                  Source `json:"source" yaml:"source"`
+	Source                  Source `json:"source"                  yaml:"source"`
 }
 
 // BuildExternalSnapshot creates a snapshot cr for taking volume backup.

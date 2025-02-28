@@ -111,4 +111,4 @@ func TestDoltDBPodBuilderResources(t *testing.T) {
 	}
 }
 
-// TODO: we should test all other things like volumes, init containters, etc
+// TODO: we should test all other things like volumes, init containers, etc

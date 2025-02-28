@@ -31,7 +31,8 @@ func PredicateWithLabel(label string) predicate.Predicate {
 	}
 }
 
-// PredicateChangedWithAnnotations returns a predicate that filters update events based on the presence of specific annotations and a custom change detection function.
+// PredicateChangedWithAnnotations returns a predicate that filters update events based on the presence of specific annotations and a custom
+// change detection function.
 func PredicateChangedWithAnnotations(annotations []string, hasChanged func(old, new client.Object) bool) predicate.Predicate {
 	return predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {

@@ -30,7 +30,7 @@ func (b *LabelsBuilder) WithApp(app string) *LabelsBuilder {
 	return b
 }
 
-// WithApp sets the engine verison label
+// WithApp sets the engine version label
 func (b *LabelsBuilder) WithVersion(version string) *LabelsBuilder {
 	if version == "" {
 		return b

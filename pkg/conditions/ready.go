@@ -156,3 +156,13 @@ func SetReadyStorageResized(c Conditioner) {
 		Message: "Storage resized",
 	})
 }
+
+// SetReadyWithSnapshotJobCreated sets the SnapshotCreated condition to True with a SnapshotCreated reason.
+func SetReadyWithSnapshotJobCreated(c Conditioner) {
+	c.SetCondition(metav1.Condition{
+		Type:    doltv1alpha.ConditionTypeSnapshotCreated,
+		Status:  metav1.ConditionTrue,
+		Reason:  doltv1alpha.ConditionReasonSnapshotCreated,
+		Message: "Snapshot cron job created",
+	})
+}

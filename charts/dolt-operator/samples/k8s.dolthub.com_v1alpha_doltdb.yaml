@@ -7,8 +7,18 @@ spec:
   engineVersion: 1.45.1
   image: "dolthub/dolt"
   replicas: 3
+  podAnnotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8080"
   storage:
     size: "10Gi"
+  server:
+    listener:
+      maxConnections: 1024
+    metrics:
+      enabled: true
+      labels:
+        app: dolt
   replication:
     enabled: true
     primary: 

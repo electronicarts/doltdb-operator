@@ -59,7 +59,7 @@ func (in *SnapshotStatus) SetCondition(condition metav1.Condition) {
 }
 
 func (d *Snapshot) IsReady() bool {
-	return meta.IsStatusConditionTrue(d.Status.Conditions, ConditionTypeReady)
+	return meta.IsStatusConditionTrue(d.Status.Conditions, ConditionTypeSnapshotCreated)
 }
 
 // +kubebuilder:object:root=true

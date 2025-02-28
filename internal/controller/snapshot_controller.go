@@ -26,6 +26,7 @@ import (
 	"github.com/electronicarts/doltdb-operator/pkg/conditions"
 	"github.com/electronicarts/doltdb-operator/pkg/controller/database"
 	"github.com/electronicarts/doltdb-operator/pkg/controller/volumesnapshot"
+	"github.com/electronicarts/doltdb-operator/pkg/patch"
 	"github.com/electronicarts/doltdb-operator/pkg/refresolver"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -57,7 +58,7 @@ type SnapshotReconciler struct {
 // perform operations to make the cluster state reflect the state specified by
 // the user.
 func (r *SnapshotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := log.FromContext(ctx)
+	log := log.FromContext(ctx).WithValues("snapshot", req.NamespacedName)
 
 	// Fetch Snapshot CR in current namespace
 	var snapshot doltv1alpha.Snapshot
@@ -68,16 +69,17 @@ func (r *SnapshotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	log.WithValues("snapshot", snapshot.Name).
 		Info("Running reconciler for Snapshot")
 
+	if err := patch.PatchSnapshotStatus(ctx, r.Client, &snapshot, func(status *doltv1alpha.SnapshotStatus) error {
+		conditions.SetReadyWithSnapshotJobCreated(status)
+		return nil
+	}); err != nil {
+		return ctrl.Result{Requeue: true}, fmt.Errorf("error patching status: %v", err)
+	}
+
 	// Fetch DoltDB CR in current namespace
 	doltdb, err := r.RefResolver.DoltDB(ctx, snapshot.DoltDBRef(), snapshot.GetNamespace())
 	if err != nil {
-		var errBundle *multierror.Error
-		errBundle = multierror.Append(errBundle, err)
-
-		err = r.PatchStatus(ctx, &snapshot, r.ConditionReady.PatcherRefResolver(err, doltdb))
-		errBundle = multierror.Append(errBundle, err)
-
-		return ctrl.Result{}, fmt.Errorf("error getting DoltDB: %v", errBundle)
+		return ctrl.Result{}, fmt.Errorf("error getting DoltDB: %v", err)
 	}
 	if result, err := database.WaitForDoltDB(ctx, r.Client, doltdb, false); !result.IsZero() || err != nil {
 		var errBundle *multierror.Error
@@ -89,43 +91,39 @@ func (r *SnapshotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			errBundle = multierror.Append(errBundle, err)
 		}
 
-		return result, errBundle.ErrorOrNil()
+		return result, fmt.Errorf("error waiting for DoltDB: %v", errBundle.ErrorOrNil())
 	}
+
 	// Reconcile the Snapshot
-	_, err = r.reconcileVolumeSnapshot(ctx, doltdb, &snapshot)
-	// Update the Snapshot status
-	var errBundle *multierror.Error
-	errBundle = multierror.Append(errBundle, err)
-	if err := errBundle.ErrorOrNil(); err != nil {
-		msg := fmt.Sprintf("Error creating %s: %v", snapshot.GetName(), err)
+	if err = r.VolumeSnapshotReconciler.Reconcile(ctx, &volumesnapshot.ReconcileRequest{
+		Metadata: &snapshot.ObjectMeta,
+		Owner:    doltdb,
+		SubOwner: &snapshot,
+	}); err != nil {
+		// Update the Snapshot status
+		var errBundle *multierror.Error
+
+		msg := fmt.Sprintf("Error creating snapshot %s: %v", snapshot.GetName(), err)
 		err = r.PatchStatus(ctx, &snapshot, r.ConditionReady.PatcherFailed(msg))
 		errBundle = multierror.Append(errBundle, err)
 
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{Requeue: true}, errBundle.ErrorOrNil()
 	}
-	err = r.PatchStatus(ctx, &snapshot, r.ConditionReady.PatcherWithError(errBundle.ErrorOrNil()))
-	errBundle = multierror.Append(errBundle, err)
 
-	return ctrl.Result{Requeue: true}, nil
+	if err := patch.PatchSnapshotStatus(ctx, r.Client, &snapshot, func(status *doltv1alpha.SnapshotStatus) error {
+		conditions.SetReadyWithSnapshotJobCreated(status)
+		return nil
+	}); err != nil {
+		return ctrl.Result{Requeue: true}, fmt.Errorf("error patching status: %v", err)
+	}
+
+	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *SnapshotReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&doltv1alpha.Snapshot{}).Complete(r)
-}
-
-func (r *SnapshotReconciler) reconcileVolumeSnapshot(ctx context.Context, doltdb *doltv1alpha.DoltDB, snapshot *doltv1alpha.Snapshot) (ctrl.Result, error) {
-	req := volumesnapshot.ReconcileRequest{
-		Metadata: &snapshot.ObjectMeta,
-		Owner:    doltdb,
-		SubOwner: snapshot,
-	}
-	if err := r.VolumeSnapshotReconciler.Reconcile(ctx, &req); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	return ctrl.Result{}, nil
 }
 
 func (r *SnapshotReconciler) PatchStatus(ctx context.Context, snapshot *doltv1alpha.Snapshot, patcher conditions.Patcher) error {

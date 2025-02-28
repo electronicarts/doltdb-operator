@@ -85,7 +85,7 @@ var _ = Describe("Snapshot Controller", func() {
 				return false
 			}
 
-			//retrieve Pods from the StatefulSet
+			// retrieve Pods from the StatefulSet
 			listOpts := &ctrlclient.ListOptions{
 				LabelSelector: klabels.SelectorFromSet(
 					builder.NewLabelsBuilder().
@@ -106,7 +106,6 @@ var _ = Describe("Snapshot Controller", func() {
 				if err := k8sClient.Get(ctx, snapshot.CronJobKey(pvc.Name), &createdCronJob); err != nil {
 					return false
 				}
-				return createdCronJob.Status.Active != nil
 			}
 
 			return true

@@ -40,9 +40,15 @@ func TestPollWithDoltCluster(t *testing.T) {
 	})
 
 	t.Run("doltdb not found", func(t *testing.T) {
-		err := PollWithDoltDB(ctx, types.NamespacedName{Namespace: "default", Name: "another-unknown-doltdb"}, client, logger, func(ctx context.Context) error {
-			return nil
-		})
+		err := PollWithDoltDB(
+			ctx,
+			types.NamespacedName{Namespace: "default", Name: "another-unknown-doltdb"},
+			client,
+			logger,
+			func(ctx context.Context) error {
+				return nil
+			},
+		)
 		if err != nil {
 			t.Errorf("expected no error, got %v", err)
 		}

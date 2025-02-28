@@ -1,9 +1,10 @@
 package builder
 
 import (
-	"k8s.io/utils/ptr"
 	"reflect"
 	"testing"
+
+	"k8s.io/utils/ptr"
 
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -124,7 +125,10 @@ func TestExternalSnapshot(t *testing.T) {
 				t.Fatalf("unexpected error building Volumesnapshot: %v", err)
 			}
 			if !reflect.DeepEqual(volumeSnapshot.VolumeSnapshotSpec, tt.wantSnapshot.VolumeSnapshotSpec) {
-				if !reflect.DeepEqual(volumeSnapshot.VolumeSnapshotSpec.VolumeSnapshotClassName, tt.wantSnapshot.VolumeSnapshotSpec.VolumeSnapshotClassName) {
+				if !reflect.DeepEqual(
+					volumeSnapshot.VolumeSnapshotSpec.VolumeSnapshotClassName,
+					tt.wantSnapshot.VolumeSnapshotSpec.VolumeSnapshotClassName,
+				) {
 					t.Errorf("VolumeSnapshot.VolumeSnapshotSpec = %v, want %v", volumeSnapshot.VolumeSnapshotSpec, tt.wantSnapshot.VolumeSnapshotSpec)
 				}
 			}

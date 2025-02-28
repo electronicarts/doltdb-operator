@@ -62,12 +62,15 @@ vet: ## Run go vet against code.
 	go vet ./...
 
 .PHONY: lint
-lint: golangci-lint ## Run golangci-lint linter
-	$(GOLANGCI_LINT) run
+lint: golines golangci-lint ## Run golangci-lint linter
+	$(GOLINES) --max-len=140 --tab-len=2 --dry-run --chain-split-dots --shorten-comments pkg/ internal/ cmd/ api/
+	$(GOLANGCI_LINT) run -v --color always
+	
 
 .PHONY: lint-fix
-lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
-	$(GOLANGCI_LINT) run --fix
+lint-fix: golines golangci-lint ## Run golangci-lint linter and perform fixes
+	$(GOLINES) --max-len=140 --tab-len=2 --chain-split-dots --shorten-comments --write-output pkg/ internal/ cmd/ api/
+	$(GOLANGCI_LINT) run --fix -v
 
 .PHONY: tiltdev
 tiltdev:

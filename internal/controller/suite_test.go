@@ -18,9 +18,10 @@ package controller
 
 import (
 	"context"
-	"github.com/electronicarts/doltdb-operator/pkg/controller/volumesnapshot"
 	"testing"
 	"time"
+
+	"github.com/electronicarts/doltdb-operator/pkg/controller/volumesnapshot"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -71,7 +72,7 @@ func TestControllers(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	testLogger := zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true), zap.Level(zapcore.DebugLevel))
+	testLogger := zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true), zap.Level(zapcore.WarnLevel))
 
 	log.SetLogger(testLogger)
 

@@ -10,7 +10,6 @@ import (
 	"github.com/electronicarts/doltdb-operator/pkg/builder"
 	"github.com/electronicarts/doltdb-operator/pkg/controller/configmap"
 	"github.com/electronicarts/doltdb-operator/pkg/controller/service"
-	"github.com/electronicarts/doltdb-operator/pkg/dolt"
 	"github.com/electronicarts/doltdb-operator/pkg/health"
 	"github.com/electronicarts/doltdb-operator/pkg/refresolver"
 	"github.com/electronicarts/doltdb-operator/pkg/statefulset"
@@ -82,7 +81,11 @@ func (r *ReplicationReconciler) Reconcile(ctx context.Context, doltdb *doltv1alp
 
 	if doltdb.IsSwitchingPrimary() {
 		clientSet := NewReplicationClientSet(doltdb, r.refResolver)
-		defer clientSet.close()
+		defer func() {
+			if err := clientSet.Close(); err != nil {
+				switchoverLogger.Error(err, "error closing dolt client set")
+			}
+		}()
 
 		switchoverLogger.V(0).Info("Reconciling switchover")
 
@@ -102,7 +105,7 @@ func (r *ReplicationReconciler) Reconcile(ctx context.Context, doltdb *doltv1alp
 		doltdbKey,
 		doltdb.InternalServiceKey(),
 		health.WithDesiredReplicas(doltdb.Spec.Replicas),
-		health.WithPort(dolt.DatabasePort),
+		health.WithPort(doltdb.Spec.Server.Listener.Port),
 		health.WithEndpointPolicy(health.EndpointPolicyAll),
 	)
 	if err != nil {
@@ -113,7 +116,11 @@ func (r *ReplicationReconciler) Reconcile(ctx context.Context, doltdb *doltv1alp
 	}
 
 	clientSet := NewReplicationClientSet(doltdb, r.refResolver)
-	defer clientSet.close()
+	defer func() {
+		if err := clientSet.Close(); err != nil {
+			logger.Error(err, "error closing dolt client set")
+		}
+	}()
 
 	req := reconcileRequest{
 		doltdb:    doltdb,
@@ -156,7 +163,13 @@ func (r *ReplicationReconciler) reconcileReplication(ctx context.Context, req *r
 }
 
 // TODO: reconcile if two primaries, but look at label...
-func (r *ReplicationReconciler) reconcileReplicationInPod(ctx context.Context, req *reconcileRequest, logger logr.Logger, index int, nextReplicationEpoch int) error {
+func (r *ReplicationReconciler) reconcileReplicationInPod(
+	ctx context.Context,
+	req *reconcileRequest,
+	logger logr.Logger,
+	index int,
+	nextReplicationEpoch int,
+) error {
 	pod := statefulset.PodName(req.doltdb.ObjectMeta, index)
 	primaryPodIndex := *req.doltdb.Status.CurrentPrimaryPodIndex
 

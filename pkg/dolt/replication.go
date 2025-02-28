@@ -81,7 +81,8 @@ func CurrentPrimaryAndEpoch(doltdb *doltv1alpha.DoltDB, dbstates []DBState) (int
 	for i := range dbstates {
 		if dbstates[i].Role == PrimaryRoleValue.String() {
 			if currentPrimary != -1 {
-				return -1, -1, fmt.Errorf("more than one reachable pod was in role primary: %s and %s", statefulset.PodName(doltdb.ObjectMeta, currentPrimary), statefulset.PodName(doltdb.ObjectMeta, i))
+				return -1, -1, fmt.Errorf("more than one reachable pod was in role primary: %s and %s",
+					statefulset.PodName(doltdb.ObjectMeta, currentPrimary), statefulset.PodName(doltdb.ObjectMeta, i))
 			}
 			currentPrimary = i
 		}

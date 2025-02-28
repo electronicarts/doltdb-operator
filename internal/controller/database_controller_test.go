@@ -80,13 +80,18 @@ var _ = Describe("Database Controller", func() {
 			if err != nil {
 				return false
 			}
-			defer sqlClient.Close()
+			defer func() {
+				g.Expect(sqlClient.Close()).To(Succeed())
+			}()
 
 			dbs, err := sqlClient.Query(ctx, "SHOW DATABASES")
 			if err != nil {
 				return false
 			}
-			defer dbs.Close()
+			defer func() {
+				err := dbs.Close()
+				g.Expect(err).NotTo(HaveOccurred())
+			}()
 
 			var dbCreated bool
 			for dbs.Next() {
@@ -108,7 +113,9 @@ var _ = Describe("Database Controller", func() {
 			if err != nil {
 				return false
 			}
-			defer sqlClient.Close()
+			defer func() {
+				g.Expect(sqlClient.Close()).To(Succeed())
+			}()
 
 			err = sqlClient.UseDatabase(ctx, *database.Spec.Name)
 			g.Expect(err).NotTo(HaveOccurred())
@@ -138,7 +145,9 @@ var _ = Describe("Database Controller", func() {
 			if err != nil {
 				return false
 			}
-			defer sqlClient.Close()
+			defer func() {
+				g.Expect(sqlClient.Close()).To(Succeed())
+			}()
 
 			err = sqlClient.UseDatabase(ctx, *database.Spec.Name)
 			g.Expect(err).NotTo(HaveOccurred())

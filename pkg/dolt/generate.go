@@ -10,32 +10,33 @@ import (
 
 // GenerateConfigMapData generates the configuration data for the ConfigMap based on the number of replicas.
 func GenerateConfigMapData(doltdb *doltv1alpha.DoltDB) (map[string]string, error) {
-	var maxConnections int32
-
-	if doltdb.Spec.MaxConnections != nil {
-		maxConnections = *doltdb.Spec.MaxConnections
-	} else {
-		maxConnections = MaxConnections
-	}
-
 	data := make(map[string]string)
 	for i := 0; i < int(doltdb.Spec.Replicas); i++ {
 		config := Config{
-			LogLevel: LogLevel,
+			LogLevel: doltdb.Spec.Server.LogLevel,
 			Cluster: Cluster{
 				StandbyRemotes: generateStandbyRemotes(i, doltdb),
 				BootstrapEpoch: 1,
 				BootstrapRole:  getBootstrapRole(i),
 				RemotesAPI: RemotesAPI{
-					Port: RemotesAPIPort,
+					Port: doltdb.Spec.Server.Cluster.RemotesAPI.Port,
 				},
 			},
 			Listener: Listener{
-				Host:           "0.0.0.0",
-				Port:           DatabasePort,
-				MaxConnections: maxConnections,
+				Host:           doltdb.Spec.Server.Listener.Host,
+				Port:           doltdb.Spec.Server.Listener.Port,
+				MaxConnections: doltdb.Spec.Server.Listener.MaxConnections,
 			},
 		}
+
+		if doltdb.Spec.Server.Metrics != nil && doltdb.Spec.Server.Metrics.Enabled {
+			config.Metrics = Metrics{
+				Labels: doltdb.Spec.Server.Metrics.Labels,
+				Host:   doltdb.Spec.Server.Metrics.Host,
+				Port:   doltdb.Spec.Server.Metrics.Port,
+			}
+		}
+
 		yamlData, err := yaml.Marshal(config)
 		if err != nil {
 			return nil, fmt.Errorf("error marshaling DoltDB config to YAML: %v", err)

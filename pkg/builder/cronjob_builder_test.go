@@ -1,14 +1,15 @@
 package builder
 
 import (
+	"reflect"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"reflect"
-	"testing"
 )
 
 func TestBuildCronJob(t *testing.T) {
@@ -131,7 +132,12 @@ func TestBuildCronJob(t *testing.T) {
 				t.Fatalf("unexpected error building Volumesnapshot: %v", err)
 			}
 
-			assert.Equal(t, cronjob.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Command, tt.wantCronJob.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Command, "The pod command should be equal")
+			assert.Equal(
+				t,
+				cronjob.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Command,
+				tt.wantCronJob.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Command,
+				"The pod command should be equal",
+			)
 			if !reflect.DeepEqual(cronjob.Spec, tt.wantCronJob.Spec) {
 				if !reflect.DeepEqual(cronjob.Spec.Schedule, tt.wantCronJob.Spec.Schedule) {
 					t.Errorf("CronJob.Spec = %v, want %v", cronjob.Spec, tt.wantCronJob.Spec)

@@ -134,9 +134,10 @@ var _ = Describe("DoltDB Controller", func() {
 				g.Expect(pod.ObjectMeta.Labels).To(HaveKeyWithValue("k8s.dolthub.com/test", "test"))
 				g.Expect(pod.ObjectMeta.Annotations).NotTo(BeNil())
 				g.Expect(pod.ObjectMeta.Annotations).To(HaveKeyWithValue("k8s.dolthub.com/test", "test"))
+				g.Expect(pod.ObjectMeta.Annotations).To(HaveKeyWithValue("pod-annotation", "true"))
 				g.Expect(pod.ObjectMeta.Labels).To(HaveKeyWithValue("app.kubernetes.io/name", "dolt"))
 
-				v, ok := pod.Labels[dolt.RoleLabel]
+				v, ok := pod.ObjectMeta.Labels[dolt.RoleLabel]
 				if !ok {
 					return false
 				}

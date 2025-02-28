@@ -102,7 +102,12 @@ func HealthyDoltDBReplica(ctx context.Context, client ctrlclient.Client, doltdb 
 }
 
 // IsDoltDBReplicaHealthy checks if the DoltDB replica specified by the podIndex is healthy.
-func IsDoltDBReplicaHealthy(ctx context.Context, client ctrlclient.Client, doltdb *doltv1alpha.DoltDB, podIndex int) (*corev1.Pod, bool, error) {
+func IsDoltDBReplicaHealthy(
+	ctx context.Context,
+	client ctrlclient.Client,
+	doltdb *doltv1alpha.DoltDB,
+	podIndex int,
+) (*corev1.Pod, bool, error) {
 	podName := statefulset.PodName(doltdb.ObjectMeta, podIndex)
 	key := types.NamespacedName{
 		Name:      podName,

@@ -45,11 +45,6 @@ var (
 		Namespace: testDoltKey.Namespace,
 	}
 
-	testDoltDBVolumeSnapshotCronjobKey1 = types.NamespacedName{
-		Name:      "dolt",
-		Namespace: testDoltKey.Namespace,
-	}
-
 	testDatabaseKey = types.NamespacedName{
 		Name:      "dolt-database-create-test",
 		Namespace: testDoltKey.Namespace,
@@ -107,14 +102,31 @@ func testCreateInitialData(ctx context.Context) {
 					},
 				},
 			},
+			PodAnnotations: map[string]string{
+				"pod-annotation": "true",
+			},
+			Server: doltv1alpha.Server{
+				LogLevel: "trace",
+				Listener: doltv1alpha.Listener{
+					MaxConnections: 1024,
+				},
+				Metrics: &doltv1alpha.Metrics{
+					Enabled: true,
+					Labels: map[string]string{
+						"env": "integration-test",
+					},
+				},
+			},
 			Probes: doltv1alpha.Probes{
 				LivenessProbe: &corev1.Probe{
-					InitialDelaySeconds: 15,
+					InitialDelaySeconds: 20,
 					PeriodSeconds:       10,
+					TimeoutSeconds:      5,
 				},
 				ReadinessProbe: &corev1.Probe{
 					InitialDelaySeconds: 15,
 					PeriodSeconds:       10,
+					TimeoutSeconds:      5,
 				},
 			},
 		},
@@ -147,23 +159,23 @@ func expectReady(ctx context.Context, k8sClient client.Client, key types.Namespa
 
 func createDefaultDoltUsers(ctx context.Context) {
 	By("Creating Admin user Secret")
-	root := v1.Secret{
+	adminUserTest := v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      testDoltCredentialsKey.Name,
 			Namespace: testDoltCredentialsKey.Namespace,
 		},
 		Type: "Opaque",
 		StringData: map[string]string{
-			"admin-user":     "root",
+			"admin-user":     "admin-user-test",
 			"admin-password": "12345",
 		},
 	}
-	if err := k8sClient.Delete(ctx, &root); err != nil {
+	if err := k8sClient.Delete(ctx, &adminUserTest); err != nil {
 		if err != client.IgnoreNotFound(err) {
 			log.FromContext(ctx).Error(err, "error cleaning test environment doltdb secret")
 		}
 	}
-	Expect(k8sClient.Create(ctx, &root)).To(Succeed())
+	Expect(k8sClient.Create(ctx, &adminUserTest)).To(Succeed())
 
 	By("Creating App user Secret")
 	defaultAppUser := v1.Secret{
@@ -195,11 +207,11 @@ func expectFn(ctx context.Context, k8sClient client.Client, key types.Namespaced
 	}, testHighTimeout, testInterval).Should(BeTrue())
 }
 
-func deleteDoltDB(ctx context.Context, key types.NamespacedName, rootUserSecretKey types.NamespacedName) {
+func deleteDoltDB(ctx context.Context, key types.NamespacedName, adminUserSecretKey types.NamespacedName) {
 	By("Deleting Admin user Secret")
-	var doltRootSecret v1.Secret
-	Expect(k8sClient.Get(ctx, rootUserSecretKey, &doltRootSecret)).To(Succeed())
-	Expect(k8sClient.Delete(ctx, &doltRootSecret)).To(Succeed())
+	var doltAdminUserSecret v1.Secret
+	Expect(k8sClient.Get(ctx, adminUserSecretKey, &doltAdminUserSecret)).To(Succeed())
+	Expect(k8sClient.Delete(ctx, &doltAdminUserSecret)).To(Succeed())
 
 	var doltdb doltv1alpha.DoltDB
 	By("Deleting DoltDB")
@@ -305,7 +317,10 @@ func testSQLConnection(ctx context.Context, doltdb *doltv1alpha.DoltDB, username
 		if err != nil {
 			return false
 		}
-		defer client.Close()
+		defer func() {
+			err := client.Close()
+			Expect(err).NotTo(HaveOccurred())
+		}()
 
 		return true
 	}, testTimeout, testInterval).Should(BeTrue())

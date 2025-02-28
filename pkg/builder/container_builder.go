@@ -13,8 +13,8 @@ const (
 	DoltContainerName     = "dolt"
 	DoltInitContainerName = "dolt-init"
 
-	DoltMySQLPortName = "dolt"
-	DoltMySQLPort     = 3306
+	DoltMySQLPortName   = "dolt"
+	DoltMetricsPortName = "dolt-metrics"
 
 	DoltDataVolume   = "dolt-data"
 	DoltConfigVolume = "dolt-config"
@@ -22,8 +22,10 @@ const (
 	DoltDataMountPath   = "/db"
 	DoltConfigMountPath = "/etc/doltdb"
 
-	DefaultProbePeriodSeconds       = 40
-	DefaultProbeInitialDelaySeconds = 15
+	DefaultLivenessProbeInitialDelaySeconds  = 60
+	DefaultReadinessProbeInitialDelaySeconds = 40
+	DefaultProbePeriodSeconds                = 10
+	DefaultProbeTimeoutSeconds               = 3
 )
 
 func doltVolumeMounts() []corev1.VolumeMount {
@@ -79,6 +81,24 @@ func doltEnv(doltdb *doltv1alpha.DoltDB) []corev1.EnvVar {
 	}
 }
 
+func doltContainerPorts(doltdb *doltv1alpha.DoltDB) []corev1.ContainerPort {
+	ports := []corev1.ContainerPort{
+		{
+			ContainerPort: doltdb.Spec.Server.Listener.Port,
+			Name:          DoltMySQLPortName,
+		},
+	}
+
+	if doltdb.Spec.Server.Metrics != nil && doltdb.Spec.Server.Metrics.Enabled {
+		ports = append(ports, corev1.ContainerPort{
+			ContainerPort: doltdb.Spec.Server.Metrics.Port,
+			Name:          DoltMetricsPortName,
+		})
+	}
+
+	return ports
+}
+
 func doltContainers(doltdb *doltv1alpha.DoltDB) []corev1.Container {
 	containers := []corev1.Container{
 		{
@@ -89,15 +109,10 @@ func doltContainers(doltdb *doltv1alpha.DoltDB) []corev1.Container {
 			WorkingDir:      DoltDataMountPath,
 			Env:             doltEnv(doltdb),
 			Resources:       doltResourceRequirements(doltdb),
-			Ports: []corev1.ContainerPort{
-				{
-					ContainerPort: DoltMySQLPort,
-					Name:          DoltMySQLPortName,
-				},
-			},
-			VolumeMounts:   doltVolumeMounts(),
-			ReadinessProbe: doltReadinessProbe(doltdb.Spec.Probes.ReadinessProbe),
-			LivenessProbe:  doltLivenessProbe(doltdb.Spec.Probes.LivenessProbe),
+			Ports:           doltContainerPorts(doltdb),
+			VolumeMounts:    doltVolumeMounts(),
+			ReadinessProbe:  doltReadinessProbe(doltdb.Spec.Probes.ReadinessProbe, doltdb.Spec.Server.Listener),
+			LivenessProbe:   doltLivenessProbe(doltdb.Spec.Probes.LivenessProbe, doltdb.Spec.Server.Listener),
 		},
 	}
 
@@ -118,7 +133,7 @@ dolt config --global --add user.name "dolt kubernetes deployment"
 dolt config --global --add user.email "dolt@kubernetes.deployment"
 cp /etc/doltdb/${POD_NAME}.yaml config.yaml
 if [ -n "$DOLT_PASSWORD" -a ! -f .doltcfg/privileges.db ]; then
-	dolt sql -q "create user '$DOLT_USERNAME' identified by '$DOLT_PASSWORD'; grant all privileges on *.* to '$DOLT_USERNAME' with grant option;"
+		dolt sql -q "create user '$DOLT_USERNAME' identified by '$DOLT_PASSWORD'; grant all privileges on *.* to '$DOLT_USERNAME' with grant option;"
 fi
 				`,
 			},
@@ -147,10 +162,10 @@ func doltResourceRequirements(doltdb *doltv1alpha.DoltDB) corev1.ResourceRequire
 	}
 }
 
-func doltReadinessProbe(probe *corev1.Probe) *corev1.Probe {
+func doltReadinessProbe(probe *corev1.Probe, listener doltv1alpha.Listener) *corev1.Probe {
 	if probe == nil {
 		probe = &corev1.Probe{
-			InitialDelaySeconds: DefaultProbeInitialDelaySeconds,
+			InitialDelaySeconds: DefaultReadinessProbeInitialDelaySeconds,
 			PeriodSeconds:       DefaultProbePeriodSeconds,
 		}
 	}
@@ -160,7 +175,10 @@ func doltReadinessProbe(probe *corev1.Probe) *corev1.Probe {
 				Command: []string{
 					"/bin/sh",
 					"-c",
-					`dolt --host 127.0.0.1 -u "$DOLT_USERNAME" -p "$DOLT_PASSWORD" --port 3306 --no-tls sql -q 'select current_timestamp();'`,
+					fmt.Sprintf(
+						`dolt --host 127.0.0.1 -u "$DOLT_USERNAME" -p "$DOLT_PASSWORD" --port %d --no-tls sql -q 'select current_timestamp();'`,
+						listener.Port,
+					),
 				},
 			},
 		},
@@ -173,11 +191,12 @@ func doltReadinessProbe(probe *corev1.Probe) *corev1.Probe {
 	}
 }
 
-func doltLivenessProbe(probe *corev1.Probe) *corev1.Probe {
+func doltLivenessProbe(probe *corev1.Probe, listener doltv1alpha.Listener) *corev1.Probe {
 	if probe == nil {
 		probe = &corev1.Probe{
-			InitialDelaySeconds: DefaultProbeInitialDelaySeconds,
+			InitialDelaySeconds: DefaultLivenessProbeInitialDelaySeconds,
 			PeriodSeconds:       DefaultProbePeriodSeconds,
+			TimeoutSeconds:      DefaultProbeTimeoutSeconds,
 		}
 	}
 
@@ -187,7 +206,10 @@ func doltLivenessProbe(probe *corev1.Probe) *corev1.Probe {
 				Command: []string{
 					"/bin/sh",
 					"-c",
-					`dolt --host 127.0.0.1 -u "$DOLT_USERNAME" -p "$DOLT_PASSWORD" --port 3306 --no-tls sql -q 'select current_timestamp();'`,
+					fmt.Sprintf(
+						`dolt --host 127.0.0.1 -u "$DOLT_USERNAME" -p "$DOLT_PASSWORD" --port %d --no-tls sql -q 'select current_timestamp();'`,
+						listener.Port,
+					),
 				},
 			},
 		},

@@ -9,10 +9,10 @@ import (
 )
 
 // doltServicePorts returns the service ports for the Dolt cluster.
-func doltServicePorts() []v1.ServicePort {
+func doltServicePorts(doltdb *doltv1alpha.DoltDB) []v1.ServicePort {
 	return []v1.ServicePort{
 		{
-			Port: DoltMySQLPort,
+			Port: doltdb.Spec.Server.Listener.Port,
 			Name: DoltMySQLPortName,
 		},
 	}
@@ -28,7 +28,7 @@ func (b *Builder) BuildDoltInternalService(doltdb *doltv1alpha.DoltDB) (*v1.Serv
 	svc := &v1.Service{
 		ObjectMeta: objMeta,
 		Spec: v1.ServiceSpec{
-			Ports:     doltServicePorts(),
+			Ports:     doltServicePorts(doltdb),
 			ClusterIP: "None",
 			Selector:  labels,
 		},
@@ -55,7 +55,7 @@ func (b *Builder) BuildDoltPrimaryService(doltdb *doltv1alpha.DoltDB) (*v1.Servi
 	svc := &v1.Service{
 		ObjectMeta: objMeta,
 		Spec: v1.ServiceSpec{
-			Ports:    doltServicePorts(),
+			Ports:    doltServicePorts(doltdb),
 			Type:     v1.ServiceTypeClusterIP,
 			Selector: labels,
 		},
@@ -78,7 +78,7 @@ func (b *Builder) BuildDoltReaderService(doltdb *doltv1alpha.DoltDB) (*v1.Servic
 	svc := &v1.Service{
 		ObjectMeta: objMeta,
 		Spec: v1.ServiceSpec{
-			Ports:    doltServicePorts(),
+			Ports:    doltServicePorts(doltdb),
 			Type:     v1.ServiceTypeClusterIP,
 			Selector: labels,
 		},

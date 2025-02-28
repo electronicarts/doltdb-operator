@@ -9,11 +9,13 @@ linters-settings:
   gocyclo:
     min-complexity: 22
   lll:
-    line-length: 140
+    line-length: 145
   nestif:
     min-complexity: 12
   misspell:
     locale: US
+  unparam:
+    check-exported: true
 
 issues:
   # don't skip warning about doc comments
@@ -28,6 +30,10 @@ issues:
     - path: "internal/*"
       linters:
         - dupl
+    - path: ".*_test*"
+      linters:
+        - dupl
+
 linters:
   disable-all: true
   enable:
@@ -50,5 +56,6 @@ linters:
     - staticcheck
     - typecheck
     - unconvert
-    - unparam
+    - bodyclose
     - unused
+    - noctx

@@ -11,6 +11,7 @@ KUSTOMIZE ?= $(LOCALBIN)/kustomize
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 ENVTEST ?= $(LOCALBIN)/setup-envtest
 GOLANGCI_LINT = $(LOCALBIN)/golangci-lint
+GOLINES = $(LOCALBIN)/golines
 KIND ?= kind
 TILT ?= $(LOCALBIN)/tilt
 
@@ -18,7 +19,8 @@ TILT ?= $(LOCALBIN)/tilt
 KUSTOMIZE_VERSION ?= v5.4.3
 CONTROLLER_TOOLS_VERSION ?= v0.16.1
 ENVTEST_VERSION ?= release-0.19
-GOLANGCI_LINT_VERSION ?= v1.59.1
+GOLANGCI_LINT_VERSION ?= v1.63.4
+GOLINES_VERSION ?= latest
 
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
@@ -39,6 +41,11 @@ $(ENVTEST): $(LOCALBIN)
 golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
 $(GOLANGCI_LINT): $(LOCALBIN)
 	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint,$(GOLANGCI_LINT_VERSION))
+
+.PHONY: golines
+golangci-lint: $(GOLINES) ## Download golines locally if necessary.
+$(GOLINES): $(LOCALBIN)
+	$(call go-install-tool,$(GOLINES),github.com/segmentio/golines,$(GOLINES_VERSION))
 
 .PHONY: kubectl
 kubectl: ## Download kubectl locally if necessary.

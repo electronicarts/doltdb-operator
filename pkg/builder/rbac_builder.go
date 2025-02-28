@@ -67,7 +67,8 @@ func (b *Builder) BuildRoleBinding(key types.NamespacedName, doltdb *doltv1alpha
 	return rb, nil
 }
 
-// BuildClusterRoleBinding creates a ClusterRoleBinding object that binds the specified ServiceAccount to the RoleRef and sets the controller reference.
+// BuildClusterRoleBinding creates a ClusterRoleBinding object that binds the specified ServiceAccount to the RoleRef and sets the
+// controller reference.
 func (b *Builder) BuildClusterRoleBinding(key types.NamespacedName, doltdb *doltv1alpha.DoltDB, sa *corev1.ServiceAccount,
 	roleRef rbacv1.RoleRef) (*rbacv1.ClusterRoleBinding, error) {
 	objMeta :=

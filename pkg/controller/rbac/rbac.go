@@ -3,8 +3,9 @@ package rbac
 import (
 	"context"
 	"fmt"
-	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
 	"strings"
+
+	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
 
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
 	"github.com/electronicarts/doltdb-operator/pkg/builder"
@@ -30,7 +31,11 @@ func NewReconciler(client client.Client, builder *builder.Builder) *Reconciler {
 }
 
 // ReconcileServiceAccount ensures that a ServiceAccount exists for the given DoltDB.
-func (r *Reconciler) ReconcileServiceAccount(ctx context.Context, key types.NamespacedName, doltdb *doltv1alpha.DoltDB) (*corev1.ServiceAccount, error) {
+func (r *Reconciler) ReconcileServiceAccount(
+	ctx context.Context,
+	key types.NamespacedName,
+	doltdb *doltv1alpha.DoltDB,
+) (*corev1.ServiceAccount, error) {
 	var existingSA corev1.ServiceAccount
 	err := r.Get(ctx, key, &existingSA)
 	if err == nil {
@@ -146,7 +151,13 @@ func (r *Reconciler) reconcileRole(ctx context.Context, key types.NamespacedName
 }
 
 // reconcileRoleBinding ensures that a RoleBinding exists for the given DoltDB.
-func (r *Reconciler) reconcileRoleBinding(ctx context.Context, key types.NamespacedName, doltdb *doltv1alpha.DoltDB, sa *corev1.ServiceAccount, roleRef rbacv1.RoleRef) error {
+func (r *Reconciler) reconcileRoleBinding(
+	ctx context.Context,
+	key types.NamespacedName,
+	doltdb *doltv1alpha.DoltDB,
+	sa *corev1.ServiceAccount,
+	roleRef rbacv1.RoleRef,
+) error {
 	var existingRB rbacv1.RoleBinding
 	err := r.Get(ctx, key, &existingRB)
 	if err == nil {
@@ -167,7 +178,13 @@ func (r *Reconciler) reconcileRoleBinding(ctx context.Context, key types.Namespa
 }
 
 // reconcileClusterRoleBinding ensures that a ClusterRoleBinding exists for the given DoltDB.
-func (r *Reconciler) reconcileClusterRoleBinding(ctx context.Context, key types.NamespacedName, doltdb *doltv1alpha.DoltDB, sa *corev1.ServiceAccount, roleRef rbacv1.RoleRef) error {
+func (r *Reconciler) reconcileClusterRoleBinding(
+	ctx context.Context,
+	key types.NamespacedName,
+	doltdb *doltv1alpha.DoltDB,
+	sa *corev1.ServiceAccount,
+	roleRef rbacv1.RoleRef,
+) error {
 	var existingCRB rbacv1.ClusterRoleBinding
 	err := r.Get(ctx, key, &existingCRB)
 	if err == nil {

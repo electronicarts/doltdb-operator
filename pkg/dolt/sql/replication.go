@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/electronicarts/doltdb-operator/pkg/dolt"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type AssumeRoleOpts struct {
@@ -23,8 +24,11 @@ func (c *Client) AssumeRole(ctx context.Context, opts AssumeRoleOpts) error {
 	if err != nil {
 		return err
 	}
-
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.FromContext(ctx).Error(err, "error closing rows on CALL DOLT_ASSUME_CLUSTER_ROLE()")
+		}
+	}()
 
 	if rows.Next() {
 		err = rows.Scan(&status)
@@ -64,7 +68,11 @@ func (c *Client) TransitionToStandby(ctx context.Context, opts TransitionStandby
 	if err != nil {
 		return -1, err
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.FromContext(ctx).Error(err, "error closing rows on CALL DOLT_CLUSTER_TRANSITION_TO_STANDBY()")
+		}
+	}()
 
 	for rows.Next() {
 		var res TransitionResult
@@ -129,7 +137,12 @@ func (c *Client) GetRoleAndEpoch(ctx context.Context) (string, int, error) {
 	if err != nil {
 		return "", 0, fmt.Errorf("error querying DoltDB cluster_role and epoch: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.FromContext(ctx).Error(err, "error closing rows on GetRoleAndEpoch")
+		}
+	}()
+
 	if rows.Next() {
 		err = rows.Scan(&role, &epoch)
 		if err != nil {
@@ -147,18 +160,31 @@ func (c *Client) GetRoleAndEpoch(ctx context.Context) (string, int, error) {
 
 func (c *Client) GetClusterStatus(ctx context.Context) ([]dolt.DoltStatus, error) {
 	rows, err := c.db.QueryContext(ctx,
-		"SELECT `database`, role, epoch, standby_remote, replication_lag_millis, last_update, current_error FROM `dolt_cluster`.`dolt_cluster_status`",
+		"SELECT `database`, role, epoch, standby_remote, replication_lag_millis, last_update,"+
+			"current_error FROM `dolt_cluster`.`dolt_cluster_status`",
 	)
 	if err != nil {
 		return nil, fmt.Errorf("error loading dolt_cluster_status table: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.FromContext(ctx).Error(err, "error closing rows on GetClusterStatus")
+		}
+	}()
 
 	var doltStates []dolt.DoltStatus
 
 	for rows.Next() {
 		var state dolt.DoltStatus
-		err = rows.Scan(&state.Database, &state.Role, &state.Epoch, &state.Remote, &state.ReplicationLag, &state.LastUpdate, &state.CurrentError)
+		err = rows.Scan(
+			&state.Database,
+			&state.Role,
+			&state.Epoch,
+			&state.Remote,
+			&state.ReplicationLag,
+			&state.LastUpdate,
+			&state.CurrentError,
+		)
 		if err != nil {
 			return nil, fmt.Errorf("error scanning dolt_cluster_status status row: %w", err)
 		}

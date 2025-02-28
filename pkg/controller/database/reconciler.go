@@ -8,7 +8,6 @@ import (
 	"github.com/hashicorp/go-multierror"
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
 	"github.com/electronicarts/doltdb-operator/pkg/conditions"
-	"github.com/electronicarts/doltdb-operator/pkg/dolt"
 	sqlClient "github.com/electronicarts/doltdb-operator/pkg/dolt/sql"
 	"github.com/electronicarts/doltdb-operator/pkg/health"
 	"github.com/electronicarts/doltdb-operator/pkg/refresolver"
@@ -180,7 +179,7 @@ func WaitForDoltDB(ctx context.Context, client client.Client, doltdb *doltv1alph
 		clientpkg.ObjectKeyFromObject(doltdb),
 		doltdb.InternalServiceKey(),
 		health.WithDesiredReplicas(doltdb.Spec.Replicas),
-		health.WithPort(dolt.DatabasePort),
+		health.WithPort(doltdb.Spec.Server.Listener.Port),
 		health.WithEndpointPolicy(health.EndpointPolicyAll),
 	)
 

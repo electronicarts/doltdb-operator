@@ -103,12 +103,14 @@ var _ = Describe("DoltDB Replication Controller", Ordered, func() {
 				},
 				Probes: doltv1alpha.Probes{
 					LivenessProbe: &corev1.Probe{
-						InitialDelaySeconds: 15,
-						PeriodSeconds:       20,
+						InitialDelaySeconds: 20,
+						PeriodSeconds:       5,
+						TimeoutSeconds:      5,
 					},
 					ReadinessProbe: &corev1.Probe{
 						InitialDelaySeconds: 15,
-						PeriodSeconds:       20,
+						PeriodSeconds:       5,
+						TimeoutSeconds:      5,
 					},
 				},
 			},
@@ -176,7 +178,9 @@ var _ = Describe("DoltDB Replication Controller", Ordered, func() {
 			if err != nil {
 				return false
 			}
-			defer sqlClient.Close()
+			defer func() {
+				g.Expect(sqlClient.Close()).To(Succeed())
+			}()
 			return true
 		}, testTimeout, testInterval).Should(BeTrue())
 
@@ -190,7 +194,9 @@ var _ = Describe("DoltDB Replication Controller", Ordered, func() {
 			if err != nil {
 				return false
 			}
-			defer sqlClient.Close()
+			defer func() {
+				g.Expect(sqlClient.Close()).To(Succeed())
+			}()
 			return true
 		}, testTimeout, testInterval).Should(BeTrue())
 	})

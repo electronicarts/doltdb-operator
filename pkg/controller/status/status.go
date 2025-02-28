@@ -37,13 +37,18 @@ func NewReconciler(client client.Client, refResolver *refresolver.RefResolver) *
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, doltdb *doltv1alpha.DoltDB) (ctrl.Result, error) {
+	logger := log.FromContext(ctx).WithName("status")
 	var sts appsv1.StatefulSet
 	if err := r.Get(ctx, client.ObjectKeyFromObject(doltdb), &sts); err != nil {
 		log.FromContext(ctx).V(1).Info("error getting StatefulSet", "err", err)
 	}
 
 	clientSet := replication.NewReplicationClientSet(doltdb, r.refResolver)
-	defer clientSet.Close()
+	defer func() {
+		if err := clientSet.Close(); err != nil {
+			logger.Error(err, "error closing dolt client set")
+		}
+	}()
 
 	dbstates := replication.GetDBStates(ctx, doltdb, clientSet)
 
@@ -54,7 +59,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, doltdb *doltv1alpha.DoltDB) 
 		defaultPrimary(doltdb)
 
 		if highestEpoch != -1 {
-			doltdb.Status.UpdateReplicationEpoch(doltdb, highestEpoch)
+			doltdb.Status.UpdateReplicationEpoch(highestEpoch)
 		}
 
 		if replicationStatus != nil {

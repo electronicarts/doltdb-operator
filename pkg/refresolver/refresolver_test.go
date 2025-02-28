@@ -65,7 +65,10 @@ func TestDoltDBFromAnnotation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			client := fake.NewClientBuilder().WithScheme(scheme).Build()
 			if tt.expectedDolt != nil {
-				client.Create(context.Background(), tt.expectedDolt)
+				err := client.Create(context.Background(), tt.expectedDolt)
+				if err != nil {
+					t.Errorf("error not expected, got %v", err)
+				}
 			}
 
 			r := New(client)
@@ -128,7 +131,10 @@ func TestDoltDB(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			client := fake.NewClientBuilder().WithScheme(scheme).Build()
 			if tt.expectedDolt != nil {
-				client.Create(context.Background(), tt.expectedDolt)
+				err := client.Create(context.Background(), tt.expectedDolt)
+				if err != nil {
+					t.Errorf("error not expected, got %v", err)
+				}
 			}
 
 			r := New(client)

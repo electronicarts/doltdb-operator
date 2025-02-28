@@ -20,10 +20,6 @@ func NewReplicationClientSet(doltdb *doltv1alpha.DoltDB, refResolver *refresolve
 	}
 }
 
-func (c *ReplicationClientSet) close() error {
-	return c.Close()
-}
-
 func (c *ReplicationClientSet) clientForIndex(ctx context.Context, index int) (*sqlClient.Client, error) {
 	return c.ClientForIndex(ctx, index)
 }

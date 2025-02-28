@@ -112,5 +112,5 @@ func (r *RefResolver) ConfigMapKeyRef(ctx context.Context, selector *doltv1alpha
 	if !ok {
 		return "", fmt.Errorf("ConfigMap key \"%s\" not found", selector.Key)
 	}
-	return string(data), nil
+	return data, nil
 }

@@ -1,0 +1,114 @@
+package v1alpha
+
+type Server struct {
+	// LogLevel defines the logging level for the DoltDB server.
+	// +kubebuilder:default:="trace"
+	// +optional
+	LogLevel string `json:"logLevel,omitempty"`
+	// Metrics defines the metrics configuration for the DoltDB server.
+	// +optional
+	Metrics *Metrics `json:"metrics,omitempty"`
+	// Listener defines the listener configuration for the DoltDB server.
+	// +optional
+	Listener Listener `json:"listener,omitempty"`
+	// Cluster defines the cluster configuration for the DoltDB server.
+	// +optional
+	Cluster Cluster `json:"cluster,omitempty"`
+}
+
+// Metrics defines the metrics configuration for the DoltDB server.
+type Metrics struct {
+	// Enabled is a flag to enable the metrics server.
+	// +kubebuilder:default:=false
+	// +optional
+	Enabled bool `json:"enabled,omitempty"`
+	// Labels defines the labels for the metrics server.
+	// +optional
+	Labels map[string]string `json:"labels,omitempty"`
+	// Host defines the host for the metrics server.
+	// +kubebuilder:default:="0.0.0.0"
+	// +optional
+	Host string `json:"host,omitempty"`
+	// Port defines the port for the metrics server.
+	// +kubebuilder:default:=11228
+	// +optional
+	Port int32 `json:"port,omitempty"`
+}
+
+// Listener defines the listener configuration for the DoltDB server.
+type Listener struct {
+	// Host defines the host for the metrics server.
+	// +kubebuilder:default:="0.0.0.0"
+	// +optional
+	Host string `json:"host,omitempty"`
+	// Port defines the port for the metrics server.
+	// +kubebuilder:default:=3306
+	// +optional
+	Port int32 `json:"port,omitempty"`
+	// MaxConnections specifies the maximum number of connections for DoltDB.
+	// +kubebuilder:validation:Minimum=10
+	// +kubebuilder:default:=512
+	// +optional
+	MaxConnections int32 `json:"maxConnections,omitempty"`
+}
+
+// Cluster defines the cluster configuration for the DoltDB server.
+type Cluster struct {
+	// RemotesAPI defines the remotes API configuration for the DoltDB server.
+	// +kubebuilder:default:={port: 50051}
+	// +optional
+	RemotesAPI RemotesAPI `json:"remotesAPI,omitempty"`
+}
+
+type RemotesAPI struct {
+	// Port defines the port for the remotes API.
+	// +kubebuilder:default:=50051
+	// +optional
+	Port int32 `json:"port,omitempty"`
+}
+
+func (s *Server) FillWithDefaults() {
+	if s.LogLevel == "" {
+		s.LogLevel = "trace"
+	}
+	if s.Metrics == nil {
+		s.Metrics = &Metrics{}
+	}
+
+	s.Metrics.FillWithDefaults()
+	s.Listener.FillWithDefaults()
+	s.Cluster.FillWithDefaults()
+}
+
+func (m *Metrics) FillWithDefaults() {
+	if !m.Enabled {
+		m.Enabled = false
+	}
+	if m.Host == "" {
+		m.Host = "0.0.0.0"
+	}
+	if m.Port == 0 {
+		m.Port = 11228
+	}
+	if m.Labels == nil {
+		m.Labels = make(map[string]string)
+	}
+}
+
+func (l *Listener) FillWithDefaults() {
+	if l.Host == "" {
+		l.Host = "0.0.0.0"
+	}
+	if l.Port == 0 {
+		l.Port = 3306
+	}
+	if l.MaxConnections == 0 {
+		l.MaxConnections = 512
+	}
+}
+
+func (c *Cluster) FillWithDefaults() {
+	if c.RemotesAPI.Port == 0 {
+		c.RemotesAPI.Port = 50051
+	}
+}

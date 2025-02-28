@@ -9,7 +9,6 @@ import (
 
 	"github.com/go-sql-driver/mysql"
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
-	"github.com/electronicarts/doltdb-operator/pkg/dolt"
 	"github.com/electronicarts/doltdb-operator/pkg/refresolver"
 	"github.com/electronicarts/doltdb-operator/pkg/statefulset"
 )
@@ -110,7 +109,7 @@ func NewClientWithDoltDB(ctx context.Context, doltdb *doltv1alpha.DoltDB, refRes
 				doltdb.PrimaryServiceKey().Name,
 			)
 		}()),
-		WithPort(dolt.DatabasePort),
+		WithPort(doltdb.Spec.Server.Listener.Port),
 	}
 	opts = append(opts, clientOpts...)
 	return NewClient(opts...)

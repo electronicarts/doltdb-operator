@@ -16,3 +16,13 @@ func PatchStatus(ctx context.Context, r client.Client, doltdb *doltv1alpha.DoltD
 	}
 	return r.Status().Patch(ctx, doltdb, patch)
 }
+
+type PatcherSnapshot func(*doltv1alpha.SnapshotStatus) error
+
+func PatchSnapshotStatus(ctx context.Context, r client.Client, snapshot *doltv1alpha.Snapshot, patcher PatcherSnapshot) error {
+	patch := client.MergeFrom(snapshot.DeepCopy())
+	if err := patcher(&snapshot.Status); err != nil {
+		return err
+	}
+	return r.Status().Patch(ctx, snapshot, patch)
+}

@@ -42,6 +42,9 @@ type DoltDBSpec struct {
 	// PodSecurityContext defines the security context for the pod.
 	// +optional
 	PodSecurityContext v1.PodSecurityContext `json:"securityContext,omitempty"`
+	// PodAnnotations defines the annotations for the pod.
+	// +optional
+	PodAnnotations map[string]string `json:"podAnnotations,omitempty"`
 	// Affinity defines the affinity rules for the pod.
 	// +optional
 	Affinity *v1.Affinity `json:"affinity,omitempty"`
@@ -63,7 +66,7 @@ type DoltDBSpec struct {
 	// +kubebuilder:validation:Minimum=2
 	// +optional
 	Replicas int32 `json:"replicas"`
-	// MaxConnections specifies the maximum number of connections for the Dolt cluster.
+	// DEPRECATED: MaxConnections specifies the maximum number of connections for the Dolt cluster.
 	// Default is 128 connections.
 	// +kubebuilder:validation:Minimum=10
 	// +kubebuilder:default:=128
@@ -94,6 +97,9 @@ type DoltDBSpec struct {
 	// Probes defines the liveness and readiness probes for the DoltDB pods.
 	// +optional
 	Probes Probes `json:"probes"`
+	// Server defines the server configuration for the DoltDB server.
+	// +optional
+	Server Server `json:"server,omitempty"`
 }
 
 // PodDisruptionBudget is the Pod availability bundget for a DoltDB

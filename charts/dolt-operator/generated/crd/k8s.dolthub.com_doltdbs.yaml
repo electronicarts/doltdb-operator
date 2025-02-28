@@ -1012,7 +1012,7 @@ spec:
               maxConnections:
                 default: 128
                 description: |-
-                  MaxConnections specifies the maximum number of connections for the Dolt cluster.
+                  DEPRECATED: MaxConnections specifies the maximum number of connections for the Dolt cluster.
                   Default is 128 connections.
                 format: int32
                 minimum: 10
@@ -1021,6 +1021,11 @@ spec:
                 additionalProperties:
                   type: string
                 description: NodeSelector defines the node selector for the pod.
+                type: object
+              podAnnotations:
+                additionalProperties:
+                  type: string
+                description: PodAnnotations defines the annotations for the pod.
                 type: object
               podDisruptionBudget:
                 description: PodDisruptionBudget defines the budget for replica availability.
@@ -1671,6 +1676,77 @@ spec:
                           May also be set in PodSecurityContext. If set in both SecurityContext and
                           PodSecurityContext, the value specified in SecurityContext takes precedence.
                         type: string
+                    type: object
+                type: object
+              server:
+                description: Server defines the server configuration for the DoltDB
+                  server.
+                properties:
+                  cluster:
+                    description: Cluster defines the cluster configuration for the
+                      DoltDB server.
+                    properties:
+                      remotesAPI:
+                        default:
+                          port: 50051
+                        description: RemotesAPI defines the remotes API configuration
+                          for the DoltDB server.
+                        properties:
+                          port:
+                            default: 50051
+                            description: Port defines the port for the remotes API.
+                            format: int32
+                            type: integer
+                        type: object
+                    type: object
+                  listener:
+                    description: Listener defines the listener configuration for the
+                      DoltDB server.
+                    properties:
+                      host:
+                        default: 0.0.0.0
+                        description: Host defines the host for the metrics server.
+                        type: string
+                      maxConnections:
+                        default: 512
+                        description: MaxConnections specifies the maximum number of
+                          connections for DoltDB.
+                        format: int32
+                        minimum: 10
+                        type: integer
+                      port:
+                        default: 3306
+                        description: Port defines the port for the metrics server.
+                        format: int32
+                        type: integer
+                    type: object
+                  logLevel:
+                    default: trace
+                    description: LogLevel defines the logging level for the DoltDB
+                      server.
+                    type: string
+                  metrics:
+                    description: Metrics defines the metrics configuration for the
+                      DoltDB server.
+                    properties:
+                      enabled:
+                        default: false
+                        description: Enabled is a flag to enable the metrics server.
+                        type: boolean
+                      host:
+                        default: 0.0.0.0
+                        description: Host defines the host for the metrics server.
+                        type: string
+                      labels:
+                        additionalProperties:
+                          type: string
+                        description: Labels defines the labels for the metrics server.
+                        type: object
+                      port:
+                        default: 11228
+                        description: Port defines the port for the metrics server.
+                        format: int32
+                        type: integer
                     type: object
                 type: object
               serviceAccountName:

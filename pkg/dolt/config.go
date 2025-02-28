@@ -1,5 +1,7 @@
 package dolt
 
+// Reference: https://docs.dolthub.com/sql-reference/server/configuration
+
 const (
 	// LogLevel defines the logging level for the application.
 	LogLevel = "trace"
@@ -7,8 +9,6 @@ const (
 	MaxConnections int32 = 128
 	// RemotesAPIPort is the port number for the remotes API.
 	RemotesAPIPort int32 = 50051
-	// DatabasePort is the port number for the database.
-	DatabasePort int32 = 3306
 	// DatabasePortName is the name of the port used in the Service.
 	DatabasePortName string = "dolt"
 )
@@ -18,6 +18,14 @@ type Config struct {
 	LogLevel string   `yaml:"log_level"`
 	Cluster  Cluster  `yaml:"cluster"`
 	Listener Listener `yaml:"listener"`
+	Metrics  Metrics  `yaml:"metrics,omitempty"`
+}
+
+// Metrics represents the metrics section of the configuration.
+type Metrics struct {
+	Labels map[string]string `yaml:"labels"`
+	Host   string            `yaml:"host"`
+	Port   int32             `yaml:"port"`
 }
 
 // Cluster represents the cluster section of the configuration.

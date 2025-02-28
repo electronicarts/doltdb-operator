@@ -15,6 +15,9 @@ const (
 	// ConditionTypeUpdated indicates that an update has been successfully completed.
 	ConditionTypeUpdated string = "Updated"
 
+	ConditionTypeSnapshotCreated string = "SnapshotCronJobCreated"
+
+	ConditionReasonSnapshotCreated     string = "SnapshotCronJobCreated"
 	ConditionReasonStatefulSetNotReady string = "StatefulSetNotReady"
 	ConditionReasonStatefulSetReady    string = "StatefulSetReady"
 	ConditionReasonSwitchPrimary       string = "SwitchPrimary"
@@ -50,7 +53,7 @@ func (s *DoltDBStatus) UpdateCurrentPrimary(doltdb *DoltDB, index int) {
 }
 
 // UpdateReplicationEpoch updates the current epoch
-func (s *DoltDBStatus) UpdateReplicationEpoch(doltdb *DoltDB, epoch int) {
+func (s *DoltDBStatus) UpdateReplicationEpoch(epoch int) {
 	// NOTE: should check if incoming epoch is less than current?
 	s.ReplicationEpoch = &epoch
 }

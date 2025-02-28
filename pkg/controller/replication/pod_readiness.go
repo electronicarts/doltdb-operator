@@ -69,7 +69,7 @@ func (r *PodReadinessController) ReconcilePodNotReady(ctx context.Context, pod c
 
 	fromIndex := doltdb.Status.CurrentPrimaryPodIndex
 
-	//TODO: implement minCaughtUpStandbys logic https://github.com/dolthub/doltclusterctl/blob/main/commands.go#L144
+	// TODO: implement minCaughtUpStandbys logic https://github.com/dolthub/doltclusterctl/blob/main/commands.go#L144
 	// minCaughtUpStandbys := ptr.Deref(doltdb.Replication().Primary.MinCaughtUpStandbys, -1)
 	// if minCaughtUpStandbys != -1 {
 	// 	toIndex, err := r.replConfig.GetNextPrimary(ctx, doltdb, nil, *doltdb.Status.ReplicationEpoch)

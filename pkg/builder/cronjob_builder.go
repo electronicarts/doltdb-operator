@@ -2,6 +2,7 @@ package builder
 
 import (
 	"fmt"
+
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"

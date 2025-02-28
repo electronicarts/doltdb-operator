@@ -71,6 +71,7 @@ func doltPodTemplate(metadata metav1.ObjectMeta, doltdb *doltv1alpha.DoltDB) cor
 	objMeta := NewMetadataBuilder(client.ObjectKeyFromObject(doltdb)).
 		WithMetadata(&metadata).
 		WithLabels(labels).
+		WithAnnotations(doltdb.Spec.PodAnnotations).
 		Build()
 
 	return corev1.PodTemplateSpec{

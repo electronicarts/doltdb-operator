@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
 	cron "github.com/robfig/cron/v3"
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
 	"github.com/electronicarts/doltdb-operator/pkg/builder"
@@ -63,12 +64,12 @@ func (r *Reconciler) Reconcile(ctx context.Context, req *ReconcileRequest) error
 		if err != nil {
 			return fmt.Errorf("error setting creating external snapshot builder: %v", err)
 		}
-		yamlData, err := jsonToYamlMarshal(externalSnapshot, err)
+		yamlData, err := jsonToYamlMarshal(externalSnapshot)
 		if err != nil {
 			return err
 		}
 		// Create or patch the ConfigMap for each PVC
-		configMap, err := buildOrPatchConfigMap(ctx, req, yamlData, pvcName, err, r)
+		configMap, err := r.buildOrPatchConfigMap(ctx, req, yamlData, pvcName)
 		if err != nil {
 			return err
 		}
@@ -79,7 +80,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req *ReconcileRequest) error
 			return fmt.Errorf("invalid cron expression for FrequencySchedule: %v", err)
 		}
 		// Create or patch the CronJob for each PVC
-		err = buildOrPatchCronJob(ctx, req, pvcName, configMap, err, r)
+		err = r.buildOrPatchCronJob(ctx, req, pvcName, configMap)
 		if err != nil {
 			return err
 		}
@@ -89,24 +90,29 @@ func (r *Reconciler) Reconcile(ctx context.Context, req *ReconcileRequest) error
 
 }
 
-func jsonToYamlMarshal(snapshot builder.VolumeSnapshot, err error) ([]byte, error) {
+func jsonToYamlMarshal(snapshot builder.VolumeSnapshot) ([]byte, error) {
 	// Convert the VolumeSnapshot to JSON first to remove omitempty fields then convert back to YAML.
 	jsonData, _ := json.Marshal(&snapshot)
 	var jsonObj map[string]interface{}
-	err = json.Unmarshal([]byte(jsonData), &jsonObj)
-	if err != nil {
-		return nil, fmt.Errorf("error marshalling JSON for VolumeSnapshot: %v", err)
+
+	if err := json.Unmarshal(jsonData, &jsonObj); err != nil {
+		return nil, fmt.Errorf("error marshaling JSON for VolumeSnapshot: %v", err)
 	}
 	yamlData, err := yaml.Marshal(jsonObj)
 	if err != nil {
-		return nil, fmt.Errorf("error marshalling YAML for VolumeSnapshot: %v", err)
+		return nil, fmt.Errorf("error marshaling YAML for VolumeSnapshot: %v", err)
 	}
 	return yamlData, nil
 }
 
 // buildOrPatchConfigMap creates or patches a ConfigMap for the given PVC.
 // If the ConfigMap does not exist, it will be created. If it exists, it will be patched with the new data.
-func buildOrPatchConfigMap(ctx context.Context, req *ReconcileRequest, yamlData []byte, pvcName string, err error, r *Reconciler) (*corev1.ConfigMap, error) {
+func (r *Reconciler) buildOrPatchConfigMap(
+	ctx context.Context,
+	req *ReconcileRequest,
+	yamlData []byte,
+	pvcName string,
+) (*corev1.ConfigMap, error) {
 	// Create a ConfigMap for the VolumeSnapshot
 	data := make(map[string]string)
 
@@ -144,7 +150,7 @@ func buildOrPatchConfigMap(ctx context.Context, req *ReconcileRequest, yamlData 
 
 // buildOrPatchCronJob creates or patches a CronJob for the given PVC.
 // If the CronJob does not exist, it will be created. If it exists, it will be patched with the new data.
-func buildOrPatchCronJob(ctx context.Context, req *ReconcileRequest, pvcName string, configMap *corev1.ConfigMap, err error, r *Reconciler) error {
+func (r *Reconciler) buildOrPatchCronJob(ctx context.Context, req *ReconcileRequest, pvcName string, configMap *corev1.ConfigMap) error {
 	opts := builder.CronJobOpts{
 		Metadata:      req.Metadata,
 		Key:           req.SubOwner.CronJobKey(pvcName),

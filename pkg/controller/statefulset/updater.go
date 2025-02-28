@@ -69,6 +69,7 @@ func (r *Reconciler) reconcileUpdates(ctx context.Context, doltdb *doltv1alpha.D
 		if err := r.updatePod(ctx, doltdbKey, &replicaPod, stsUpdateRevision, logger); err != nil {
 			return ctrl.Result{}, fmt.Errorf("error updating replica Pod '%s': %v", replicaPod.Name, err)
 		}
+
 		return ctrl.Result{Requeue: true}, nil
 	}
 
@@ -198,7 +199,6 @@ func (r *Reconciler) getPodsByRole(ctx context.Context, doltdb *doltv1alpha.Dolt
 	var replicas []corev1.Pod
 	var primary *corev1.Pod
 	for _, pod := range list.Items {
-		pod := pod
 		if pod.Name == currentPrimary {
 			primary = &pod
 		} else {
