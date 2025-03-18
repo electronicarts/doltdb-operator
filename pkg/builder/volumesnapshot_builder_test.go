@@ -25,8 +25,7 @@ func TestBuildExternalSnapshotMeta(t *testing.T) {
 			wantMeta: VolumeSnapshot{
 				Metadata: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"app.kubernetes.io/name":   "doltdb",
-						"pvc.k8s.dolthub.com/role": "dolt-data",
+						"app.kubernetes.io/part-of": "doltdb",
 					},
 					Annotations: map[string]string{},
 				},
@@ -76,8 +75,7 @@ func TestExternalSnapshot(t *testing.T) {
 			wantSnapshot: VolumeSnapshot{
 				Metadata: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"app.kubernetes.io/name":   "doltdb",
-						"pvc.k8s.dolthub.com/role": "dolt-data",
+						"app.kubernetes.io/managed-by": "doltdb",
 					},
 					Annotations: map[string]string{},
 				},
@@ -103,8 +101,7 @@ func TestExternalSnapshot(t *testing.T) {
 			wantSnapshot: VolumeSnapshot{
 				Metadata: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"app.kubernetes.io/name":   "doltdb",
-						"pvc.k8s.dolthub.com/role": "dolt-data",
+						"app.kubernetes.io/managed-by": "doltdb",
 					},
 					Annotations: map[string]string{},
 				},

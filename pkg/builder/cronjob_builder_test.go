@@ -17,8 +17,7 @@ func TestBuildCronJob(t *testing.T) {
 	objMeta := metav1.ObjectMeta{
 		Namespace: "test",
 		Labels: map[string]string{
-			"app.kubernetes.io/name":   "doltdb",
-			"pvc.k8s.dolthub.com/role": "dolt-data",
+			"app.kubernetes.io/part-of": "doltdb",
 		},
 		Annotations: map[string]string{
 			"sidecar.istio.io/inject": "false",
@@ -37,8 +36,8 @@ func TestBuildCronJob(t *testing.T) {
 			options: CronJobOpts{
 				Metadata: &metav1.ObjectMeta{
 					Labels: map[string]string{
-						"app.kubernetes.io/name":   "doltdb",
-						"pvc.k8s.dolthub.com/role": "dolt-data",
+						"app.kubernetes.io/part-of":    "doltdb",
+						"app.kubernetes.io/managed-by": "doltdb-snapshot",
 					},
 					Annotations: map[string]string{
 						"sidecar.istio.io/inject": "false",
@@ -62,8 +61,8 @@ func TestBuildCronJob(t *testing.T) {
 					Name:      "doltdb-snapshot",
 					Namespace: "test",
 					Labels: map[string]string{
-						"app.kubernetes.io/name":   "",
-						"pvc.k8s.dolthub.com/role": "dolt-data",
+						"app.kubernetes.io/part-of":    "doltdb",
+						"app.kubernetes.io/managed-by": "doltdb-snapshot",
 					},
 					Annotations: map[string]string{
 						"sidecar.istio.io/inject": "false",
@@ -78,8 +77,8 @@ func TestBuildCronJob(t *testing.T) {
 									Name:      "doltdb-snapshot",
 									Namespace: "test",
 									Labels: map[string]string{
-										"app.kubernetes.io/name":   "doltdb",
-										"pvc.k8s.dolthub.com/role": "dolt-data",
+										"app.kubernetes.io/part-of":    "doltdb",
+										"app.kubernetes.io/managed-by": "doltdb-snapshot",
 									},
 									Annotations: map[string]string{
 										"sidecar.istio.io/inject": "false",

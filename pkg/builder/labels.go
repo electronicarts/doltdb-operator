@@ -11,6 +11,8 @@ const (
 	instanceLabel      = "app.kubernetes.io/instance"
 	statefulSetPodName = "statefulset.kubernetes.io/pod-name"
 	versionLabel       = "app.kubernetes.io/version"
+	partOfLabel        = "app.kubernetes.io/part-of"
+	managedByLabel     = "app.kubernetes.io/managed-by"
 )
 
 type LabelsBuilder struct {
@@ -27,6 +29,18 @@ func NewLabelsBuilder() *LabelsBuilder {
 // WithApp sets the app label.
 func (b *LabelsBuilder) WithApp(app string) *LabelsBuilder {
 	b.labels[appLabel] = app
+	return b
+}
+
+// WithPartOf sets the part of label.
+func (b *LabelsBuilder) WithPartOf(system string) *LabelsBuilder {
+	b.labels[partOfLabel] = system
+	return b
+}
+
+// WithManagedBy sets the owner label.
+func (b *LabelsBuilder) WithManagedBy(owner string) *LabelsBuilder {
+	b.labels[managedByLabel] = owner
 	return b
 }
 

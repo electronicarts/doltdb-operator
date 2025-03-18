@@ -1687,8 +1687,6 @@ spec:
                       DoltDB server.
                     properties:
                       remotesAPI:
-                        default:
-                          port: 50051
                         description: RemotesAPI defines the remotes API configuration
                           for the DoltDB server.
                         properties:
@@ -1708,7 +1706,7 @@ spec:
                         description: Host defines the host for the metrics server.
                         type: string
                       maxConnections:
-                        default: 512
+                        default: 1024
                         description: MaxConnections specifies the maximum number of
                           connections for DoltDB.
                         format: int32

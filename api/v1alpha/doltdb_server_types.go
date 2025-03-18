@@ -47,7 +47,7 @@ type Listener struct {
 	Port int32 `json:"port,omitempty"`
 	// MaxConnections specifies the maximum number of connections for DoltDB.
 	// +kubebuilder:validation:Minimum=10
-	// +kubebuilder:default:=512
+	// +kubebuilder:default:=1024
 	// +optional
 	MaxConnections int32 `json:"maxConnections,omitempty"`
 }
@@ -55,7 +55,6 @@ type Listener struct {
 // Cluster defines the cluster configuration for the DoltDB server.
 type Cluster struct {
 	// RemotesAPI defines the remotes API configuration for the DoltDB server.
-	// +kubebuilder:default:={port: 50051}
 	// +optional
 	RemotesAPI RemotesAPI `json:"remotesAPI,omitempty"`
 }
@@ -67,7 +66,7 @@ type RemotesAPI struct {
 	Port int32 `json:"port,omitempty"`
 }
 
-func (s *Server) FillWithDefaults() {
+func (s *Server) ApplyDefaults() {
 	if s.LogLevel == "" {
 		s.LogLevel = "trace"
 	}
@@ -75,12 +74,12 @@ func (s *Server) FillWithDefaults() {
 		s.Metrics = &Metrics{}
 	}
 
-	s.Metrics.FillWithDefaults()
-	s.Listener.FillWithDefaults()
-	s.Cluster.FillWithDefaults()
+	s.Metrics.ApplyDefaults()
+	s.Listener.ApplyDefaults()
+	s.Cluster.ApplyDefaults()
 }
 
-func (m *Metrics) FillWithDefaults() {
+func (m *Metrics) ApplyDefaults() {
 	if !m.Enabled {
 		m.Enabled = false
 	}
@@ -95,7 +94,7 @@ func (m *Metrics) FillWithDefaults() {
 	}
 }
 
-func (l *Listener) FillWithDefaults() {
+func (l *Listener) ApplyDefaults() {
 	if l.Host == "" {
 		l.Host = "0.0.0.0"
 	}
@@ -103,11 +102,11 @@ func (l *Listener) FillWithDefaults() {
 		l.Port = 3306
 	}
 	if l.MaxConnections == 0 {
-		l.MaxConnections = 512
+		l.MaxConnections = 1024
 	}
 }
 
-func (c *Cluster) FillWithDefaults() {
+func (c *Cluster) ApplyDefaults() {
 	if c.RemotesAPI.Port == 0 {
 		c.RemotesAPI.Port = 50051
 	}

@@ -71,12 +71,27 @@ var _ = Describe("Snapshot Controller", func() {
 			Expect(k8sClient.Delete(ctx, &snapshot)).To(Succeed())
 		})
 		By("Expecting Snapshot to be ready eventually")
-		Eventually(func() bool {
+		Eventually(func(g Gomega) bool {
 			if err := k8sClient.Get(ctx, testDoltDBVolumeSnapshotKey, &snapshot); err != nil {
 				return false
 			}
 			return snapshot.IsReady()
 		}, testHighTimeout, testInterval).Should(BeTrue())
+
+		// TODO: should validate that a VolumeSnapshot is created
+		// By("Expecting to create an VolumeSnapshot")
+		// Eventually(func(g Gomega) bool {
+		// 	var volumeSnapshot interface{}
+		// 	if err := k8sClient.Get(ctx, testDoltDBVolumeSnapshotKey, &snapshot, ); err != nil {
+		// 		return false
+		// 	}
+
+		// 	g.Expect(snapshot.ObjectMeta.Labels).NotTo(BeNil())
+		// 	g.Expect(snapshot.ObjectMeta.Labels).ToNot(HaveKey("app.kubernetes.io/name"))
+		// 	g.Expect(snapshot.ObjectMeta.Labels).To(HaveKeyWithValue("app.kubernetes.io/part-of", testDoltDB.Name))
+
+		// 	return snapshot.IsReady()
+		// }, testHighTimeout, testInterval).Should(BeTrue())
 
 		By("Expecting CronJob to be created eventually")
 		Eventually(func(g Gomega) bool {
@@ -106,6 +121,11 @@ var _ = Describe("Snapshot Controller", func() {
 				if err := k8sClient.Get(ctx, snapshot.CronJobKey(pvc.Name), &createdCronJob); err != nil {
 					return false
 				}
+
+				g.Expect(createdCronJob.ObjectMeta.Labels).NotTo(BeNil())
+				g.Expect(createdCronJob.ObjectMeta.Labels).ToNot(HaveKey("app.kubernetes.io/name"))
+				g.Expect(createdCronJob.ObjectMeta.Labels).To(HaveKeyWithValue("app.kubernetes.io/part-of", testDoltDB.Name))
+				g.Expect(createdCronJob.ObjectMeta.Labels).To(HaveKeyWithValue("app.kubernetes.io/managed-by", snapshot.Name))
 			}
 
 			return true

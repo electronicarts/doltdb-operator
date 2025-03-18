@@ -8,11 +8,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
-	ConfigmapKey = "dolt.yaml"
+	ConfigmapKey                  = "dolt.yaml"
+	ttlSecondsAfterFinished int32 = 300 // 5 minutes
 )
 
 // CronJobOpts holds the options for building a CronJob.
@@ -27,7 +29,8 @@ type CronJobOpts struct {
 // It returns the created cronJob or an error if the operation fails.
 func (b *Builder) BuildCronJob(options CronJobOpts, doltdb *doltv1alpha.DoltDB, snapshot *doltv1alpha.Snapshot) (*batchv1.CronJob, error) {
 	labels := NewLabelsBuilder().
-		WithDoltSelectorLabels(doltdb).
+		WithPartOf(doltdb.Name).
+		WithManagedBy(snapshot.Name).
 		Build()
 
 	objMeta := NewMetadataBuilder(options.Key).
@@ -36,9 +39,10 @@ func (b *Builder) BuildCronJob(options CronJobOpts, doltdb *doltv1alpha.DoltDB, 
 		Build()
 	//	Define the CronJobSpec
 	cronJobSpec := batchv1.CronJobSpec{
-		Schedule: options.Schedule, // Cron expression for every 5 minutes
+		Schedule: options.Schedule, // Cron expression for every 5 minutes,
 		JobTemplate: batchv1.JobTemplateSpec{
 			Spec: batchv1.JobSpec{ // Use batchv1.JobSpec here
+				TTLSecondsAfterFinished: ptr.To(ttlSecondsAfterFinished),
 				Template: corev1.PodTemplateSpec{ // Define the PodTemplateSpec
 					ObjectMeta: objMeta, // Set the metadata
 					Spec: corev1.PodSpec{ // Define the PodSpec

@@ -8,18 +8,27 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+func getIntValueOrDefault(value, defaultValue int32) int32 {
+	if value == 0 {
+		return defaultValue
+	}
+	return value
+}
+
 // GenerateConfigMapData generates the configuration data for the ConfigMap based on the number of replicas.
 func GenerateConfigMapData(doltdb *doltv1alpha.DoltDB) (map[string]string, error) {
+	remotesAPIPort := getIntValueOrDefault(doltdb.Spec.Server.Cluster.RemotesAPI.Port, RemotesAPIPort)
+
 	data := make(map[string]string)
 	for i := 0; i < int(doltdb.Spec.Replicas); i++ {
 		config := Config{
 			LogLevel: doltdb.Spec.Server.LogLevel,
 			Cluster: Cluster{
-				StandbyRemotes: generateStandbyRemotes(i, doltdb),
+				StandbyRemotes: generateStandbyRemotes(i, doltdb, remotesAPIPort),
 				BootstrapEpoch: 1,
 				BootstrapRole:  getBootstrapRole(i),
 				RemotesAPI: RemotesAPI{
-					Port: doltdb.Spec.Server.Cluster.RemotesAPI.Port,
+					Port: remotesAPIPort,
 				},
 			},
 			Listener: Listener{
@@ -47,7 +56,7 @@ func GenerateConfigMapData(doltdb *doltv1alpha.DoltDB) (map[string]string, error
 }
 
 // generateStandbyRemotes generates the standby remotes section of the configuration.
-func generateStandbyRemotes(current int, doltdb *doltv1alpha.DoltDB) []StandbyRemote {
+func generateStandbyRemotes(current int, doltdb *doltv1alpha.DoltDB, remotesAPIPort int32) []StandbyRemote {
 	var remotes []StandbyRemote
 	for i := 0; i < int(doltdb.Spec.Replicas); i++ {
 		if i != current {
@@ -56,7 +65,7 @@ func generateStandbyRemotes(current int, doltdb *doltv1alpha.DoltDB) []StandbyRe
 				RemoteURLTemplate: fmt.Sprintf(
 					"http://%s:%d/{database}",
 					statefulset.PodShortFQDNWithServiceAndNamespace(doltdb.ObjectMeta, i, doltdb.InternalServiceKey().Name),
-					RemotesAPIPort,
+					remotesAPIPort,
 				),
 			})
 		}

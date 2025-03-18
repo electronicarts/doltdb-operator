@@ -73,6 +73,36 @@ func TestGenerateConfigMapData(t *testing.T) {
 			expectedError: false,
 		},
 		{
+			name: "with maybe null server config values",
+			doltdb: &doltv1alpha.DoltDB{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-cluster",
+					Namespace: "default",
+				},
+				Spec: doltv1alpha.DoltDBSpec{
+					Replicas: 2,
+					Server: doltv1alpha.Server{
+						Listener: doltv1alpha.Listener{
+							Host:           "0.0.0.0",
+							Port:           3306,
+							MaxConnections: 128,
+						},
+						Metrics: &doltv1alpha.Metrics{
+							Enabled: true,
+							Host:    "0.0.0.0",
+							Labels: map[string]string{
+								"doltdb_instance": "doltdb-dev",
+							},
+							Port: 9092,
+						},
+						LogLevel: "trace",
+					},
+				},
+			},
+			expectedData:  readTestData(t, "null_server_config.yaml"),
+			expectedError: false,
+		},
+		{
 			name: "with metrics server config",
 			doltdb: &doltv1alpha.DoltDB{
 				ObjectMeta: metav1.ObjectMeta{

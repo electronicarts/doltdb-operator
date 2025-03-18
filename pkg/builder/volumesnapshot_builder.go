@@ -34,9 +34,9 @@ type VolumeSnapshotSpec struct {
 // BuildExternalSnapshot creates a snapshot cr for taking volume backup.
 func (b *Builder) BuildExternalSnapshot(pvcName string, doltdb *doltv1alpha.DoltDB) (VolumeSnapshot, error) {
 	labels := NewLabelsBuilder().
-		WithDoltSelectorLabels(doltdb).
-		WithPVCRole(DoltDataVolume).
+		WithPartOf(doltdb.Name).
 		Build()
+
 	objMeta :=
 		NewMetadataBuilder(types.NamespacedName{
 			Name:      pvcName + "-${DATE}",
