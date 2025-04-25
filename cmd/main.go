@@ -22,6 +22,7 @@ import (
 	"flag"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -33,6 +34,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -84,6 +86,7 @@ func main() {
 	var logDevMode bool
 	var logSql bool
 	var requeueSql time.Duration
+	var watchNamespaces string
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
@@ -102,6 +105,8 @@ func main() {
 	flag.BoolVar(&logDevMode, "log-dev-mode", true, "Enable development logs.")
 	flag.BoolVar(&logSql, "log-sql", false, "Enable SQL resource logs.")
 	flag.DurationVar(&requeueSql, "requeue-sql", 30*time.Second, "The interval at which SQL objects are requeued.")
+	flag.StringVar(&watchNamespaces, "watch-namespaces", "",
+		"The comma-separated list of namespaces to watch for changes. If not set, all namespaces are watched.")
 
 	opts := zap.Options{
 		Development: logDevMode,
@@ -120,6 +125,16 @@ func main() {
 	)
 	defer cancel()
 
+	mgrOpts := ctrl.Options{
+		Scheme:                 scheme,
+		HealthProbeBindAddress: probeAddr,
+		LeaderElection:         enableLeaderElection,
+		LeaderElectionID:       "k8s.dolthub.com",
+		Controller: config.Controller{
+			MaxConcurrentReconciles: maxConcurrentReconciles,
+		},
+	}
+
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
 	// prevent from being vulnerable to the HTTP/2 Stream Cancellation and
@@ -134,10 +149,6 @@ func main() {
 	if !enableHTTP2 {
 		tlsOpts = append(tlsOpts, disableHTTP2)
 	}
-
-	webhookServer := webhook.NewServer(webhook.Options{
-		TLSOpts: tlsOpts,
-	})
 
 	// Metrics endpoint is enabled in 'config/default/kustomization.yaml'. The Metrics options configure the server.
 	// More info:
@@ -163,17 +174,25 @@ func main() {
 		metricsServerOptions.FilterProvider = filters.WithAuthenticationAndAuthorization
 	}
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 scheme,
-		Metrics:                metricsServerOptions,
-		WebhookServer:          webhookServer,
-		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "k8s.dolthub.com",
-		Controller: config.Controller{
-			MaxConcurrentReconciles: maxConcurrentReconciles,
-		},
+	mgrOpts.Metrics = metricsServerOptions
+	mgrOpts.WebhookServer = webhook.NewServer(webhook.Options{
+		TLSOpts: tlsOpts,
 	})
+
+	if watchNamespaces != "" {
+		namespaces := strings.Split(watchNamespaces, ",")
+
+		setupLog.Info("Watching namespaces", "namespaces", namespaces)
+		mgrOpts.Cache.DefaultNamespaces = make(map[string]cache.Config, len(namespaces))
+
+		for _, ns := range namespaces {
+			mgrOpts.Cache.DefaultNamespaces[ns] = cache.Config{}
+		}
+	} else {
+		setupLog.Info("Watching all namespaces")
+	}
+
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), mgrOpts)
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
