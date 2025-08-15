@@ -1,6 +1,9 @@
 package v1alpha
 
 type Server struct {
+	// Profiler defines the profiler configuration for the DoltDB server.
+	// +optional
+	Profiler Profiler `json:"profiler,omitempty"`
 	// Behavior defines the behavior configuration for the DoltDB server.
 	// +optional
 	Behavior `json:"behavior,omitempty"`
@@ -17,6 +20,12 @@ type Server struct {
 	// Cluster defines the cluster configuration for the DoltDB server.
 	// +optional
 	Cluster Cluster `json:"cluster,omitempty"`
+}
+
+type Profiler struct {
+	// Enabled is a flag to enable the profiler.
+	// +kubebuilder:default:=false
+	EnablePProf bool `json:"enablePProf,omitempty"`
 }
 
 // Behavior defines the behavior configuration for the DoltDB server.

@@ -10,4 +10,4 @@ spec:
   doltDBRef:
     name: dolt
     namespace: default
-  frequencySchedule: "* * * * *"
+  frequencySchedule: "1 * * * *"

@@ -984,6 +984,30 @@ spec:
                 description: EngineVersion defines the version of the Dolt DB server
                   to use.
                 type: string
+              globalConfig:
+                description: GlobalConfig defines the global configuration for the
+                  DoltDB server.
+                properties:
+                  commitAuthor:
+                    description: CommitAuthor defines the commit author configuration
+                      for the DoltDB server.
+                    properties:
+                      email:
+                        default: dolt@kubernetes.deployment
+                        description: Email is the email of the commit author.
+                        type: string
+                      name:
+                        default: dolt kubernetes deployment
+                        description: Name is the name of the commit author.
+                        type: string
+                    type: object
+                  disableClientUsageMetricsCollection:
+                    default: false
+                    description: |-
+                      DisableClientUsageMetricsCollection defines the global configuration for enabling client usage metrics collection.
+                      Reference: https://docs.dolthub.com/other/faq#does-dolt-collect-client-metrics-how-can-i-disable-it
+                    type: boolean
+                type: object
               image:
                 default: dolthub/dolt
                 description: Image specifies the container image name for the Dolt
@@ -1783,6 +1807,15 @@ spec:
                         description: Port defines the port for the metrics server.
                         format: int32
                         type: integer
+                    type: object
+                  profiler:
+                    description: Profiler defines the profiler configuration for the
+                      DoltDB server.
+                    properties:
+                      enablePProf:
+                        default: false
+                        description: Enabled is a flag to enable the profiler.
+                        type: boolean
                     type: object
                 type: object
               serviceAccountName:

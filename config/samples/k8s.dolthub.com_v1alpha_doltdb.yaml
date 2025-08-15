@@ -6,13 +6,13 @@ metadata:
 spec:
   engineVersion: 1.57.2
   image: "dolthub/dolt"
-  replicas: 3
+  replicas: 2
   podAnnotations:
     prometheus.io/scrape: "true"
     prometheus.io/port: "8080"
   storage:
     size: "10Gi"
-    volumeSnapshot: "snapshot"
+    volumeSnapshot: "dolt-sc"
   server:
     listener:
       maxConnections: 1024
@@ -20,6 +20,11 @@ spec:
       enabled: true
       labels:
         app: dolt
+  globalConfig:
+    disableClientUsageMetricsCollection: true
+    commitAuthor:
+      name: "dolt kubernetes deployment"
+      email: "dolt@kubernetes.deployment"
   replication:
     enabled: true
     primary: 

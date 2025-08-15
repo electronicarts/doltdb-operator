@@ -2,6 +2,7 @@ package builder
 
 import (
 	"fmt"
+	"strings"
 
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
 	corev1 "k8s.io/api/core/v1"
@@ -13,8 +14,9 @@ const (
 	DoltContainerName     = "dolt"
 	DoltInitContainerName = "dolt-init"
 
-	DoltMySQLPortName   = "dolt"
-	DoltMetricsPortName = "dolt-metrics"
+	DoltMySQLPortName    = "dolt"
+	DoltMetricsPortName  = "dolt-metrics"
+	DoltProfilerPortName = "dolt-profiler"
 
 	DoltDataVolume   = "dolt-data"
 	DoltConfigVolume = "dolt-config"
@@ -41,13 +43,18 @@ func doltVolumeMounts() []corev1.VolumeMount {
 	}
 }
 
-func doltContainerCommand() []string {
-	return []string{
+func doltContainerCommand(doltdb *doltv1alpha.DoltDB) []string {
+	cmd := []string{
 		"/usr/local/bin/dolt",
-		"sql-server",
-		"--config",
-		"config.yaml",
 	}
+
+	if doltdb.Spec.Server.Profiler.EnablePProf {
+		cmd = append(cmd, "--prof", "mem", "--pprof-server")
+	}
+
+	cmd = append(cmd, "sql-server", "--config", "config.yaml")
+
+	return cmd
 }
 
 func doltEnv(doltdb *doltv1alpha.DoltDB) []corev1.EnvVar {
@@ -94,6 +101,13 @@ func doltContainerPorts(doltdb *doltv1alpha.DoltDB) []corev1.ContainerPort {
 		})
 	}
 
+	if doltdb.Spec.Server.Profiler.EnablePProf {
+		ports = append(ports, corev1.ContainerPort{
+			ContainerPort: 6060,
+			Name:          DoltProfilerPortName,
+		})
+	}
+
 	return ports
 }
 
@@ -103,7 +117,7 @@ func doltContainers(doltdb *doltv1alpha.DoltDB) []corev1.Container {
 			Name:            DoltContainerName,
 			Image:           fmt.Sprintf("%s:%s", doltdb.Spec.Image, doltdb.Spec.EngineVersion),
 			ImagePullPolicy: corev1.PullIfNotPresent,
-			Command:         doltContainerCommand(),
+			Command:         doltContainerCommand(doltdb),
 			WorkingDir:      DoltDataMountPath,
 			Env:             doltEnv(doltdb),
 			Resources:       doltResourceRequirements(doltdb),
@@ -118,26 +132,35 @@ func doltContainers(doltdb *doltv1alpha.DoltDB) []corev1.Container {
 }
 
 func doltInitContainers(doltdb *doltv1alpha.DoltDB) []corev1.Container {
+	var commands []string
+
+	doltdb.Spec.GlobalConfig.ApplyDefaults()
+
+	commands = append(commands,
+		fmt.Sprintf("dolt config --global --add user.name \"%s\"", doltdb.Spec.GlobalConfig.CommitAuthor.Name),
+		fmt.Sprintf("dolt config --global --add user.email \"%s\"", doltdb.Spec.GlobalConfig.CommitAuthor.Email),
+		fmt.Sprintf("dolt config --global --add metrics.disabled %t", ptr.Deref(doltdb.Spec.GlobalConfig.DisableClientUsageMetricsCollection, false)),
+		"cp /etc/doltdb/${POD_NAME}.yaml config.yaml", `
+if [ -n "$DOLT_PASSWORD" -a ! -f .doltcfg/privileges.db ]; then
+	dolt sql -q "create user '$DOLT_USERNAME' identified by '$DOLT_PASSWORD'; grant all privileges on *.* to '$DOLT_USERNAME' with grant option;"
+fi
+`)
+
+	command := []string{
+		"/bin/sh",
+		"-c",
+		strings.Join(commands, "\n"),
+	}
+
 	containers := []corev1.Container{
 		{
 			Name:            DoltInitContainerName,
 			Image:           fmt.Sprintf("%s:%s", doltdb.Spec.Image, doltdb.Spec.EngineVersion),
 			ImagePullPolicy: corev1.PullIfNotPresent,
-			Command: []string{
-				"/bin/sh",
-				"-c",
-				`
-dolt config --global --add user.name "dolt kubernetes deployment"
-dolt config --global --add user.email "dolt@kubernetes.deployment"
-cp /etc/doltdb/${POD_NAME}.yaml config.yaml
-if [ -n "$DOLT_PASSWORD" -a ! -f .doltcfg/privileges.db ]; then
-		dolt sql -q "create user '$DOLT_USERNAME' identified by '$DOLT_PASSWORD'; grant all privileges on *.* to '$DOLT_USERNAME' with grant option;"
-fi
-				`,
-			},
-			WorkingDir:   DoltDataMountPath,
-			Env:          doltEnv(doltdb),
-			VolumeMounts: doltVolumeMounts(),
+			Command:         command,
+			WorkingDir:      DoltDataMountPath,
+			Env:             doltEnv(doltdb),
+			VolumeMounts:    doltVolumeMounts(),
 		},
 	}
 

@@ -100,6 +100,9 @@ type DoltDBSpec struct {
 	// Server defines the server configuration for the DoltDB server.
 	// +optional
 	Server Server `json:"server,omitempty"`
+	// GlobalConfig defines the global configuration for the DoltDB server.
+	// +optional
+	GlobalConfig GlobalConfig `json:"globalConfig,omitempty"`
 }
 
 // PodDisruptionBudget is the Pod availability bundget for a DoltDB

@@ -118,6 +118,13 @@ func testCreateInitialData(ctx context.Context) {
 					},
 				},
 			},
+			GlobalConfig: doltv1alpha.GlobalConfig{
+				DisableClientUsageMetricsCollection: ptr.To(false),
+				CommitAuthor: doltv1alpha.CommitAuthor{
+					Name:  "dolt kubernetes deployment",
+					Email: "dolt@kubernetes.deployment",
+				},
+			},
 			Probes: doltv1alpha.Probes{
 				LivenessProbe: &corev1.Probe{
 					InitialDelaySeconds: 20,
