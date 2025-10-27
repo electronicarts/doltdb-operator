@@ -45,6 +45,8 @@ func doltVolumeMounts() []corev1.VolumeMount {
 
 func doltContainerCommand(doltdb *doltv1alpha.DoltDB) []string {
 	cmd := []string{
+		"tini",
+		"--",
 		"/usr/local/bin/dolt",
 	}
 

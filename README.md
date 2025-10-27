@@ -17,7 +17,7 @@ This operator supports
 - go version v1.22.0+
 - docker version 17.03+.
 - kubectl version v1.11.3+.
-- kind versio 0.24+.
+- kind version 0.30+.
 - tiltdev version 0.33+.
 - Access to a Kubernetes v1.11.3+ cluster.
 

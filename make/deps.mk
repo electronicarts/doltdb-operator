@@ -21,6 +21,7 @@ CONTROLLER_TOOLS_VERSION ?= v0.16.1
 ENVTEST_VERSION ?= release-0.19
 GOLANGCI_LINT_VERSION ?= v1.63.4
 GOLINES_VERSION ?= latest
+KIND_VERSION ?= v0.30.0
 
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
@@ -70,7 +71,7 @@ tilt:
 .PHONY: kind
 kind:
 	OS=$(shell go env GOOS) && ARCH=$(shell go env GOARCH) && \
-	curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.24.0/kind-$${OS}-$${ARCH}
+	curl -Lo ./kind https://kind.sigs.k8s.io/dl/$(KIND_VERSION)/kind-$${OS}-$${ARCH}
 	chmod +x ./kind
 	mv ./kind /usr/local/bin/kind
 

@@ -2,6 +2,7 @@
 
 CLUSTER ?= dolt
 KIND_CONFIG ?= hack/manifests/kind/kind.yaml
+KIND_CONFIG_CI ?= hack/manifests/kind/kind-ci.yaml
 
 ENV ?= \
 	DOLTDB_ENGINE_VERSION=$(DOLTDB_ENGINE_VERSION)
@@ -16,7 +17,7 @@ cluster-ci:
 		echo "Cluster ${CLUSTER} already exists."; \
 	else \
 		echo "Cluster ${CLUSTER} does not exist. Creating it now..."; \
-		$(KIND) create cluster --name $(CLUSTER);  \
+		$(KIND) create cluster --name $(CLUSTER) --config $(KIND_CONFIG_CI); \
 	fi
 
 .PHONY: cluster-delete
