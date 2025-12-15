@@ -20,6 +20,20 @@ func doltServicePorts(doltdb *doltv1alpha.DoltDB) []v1.ServicePort {
 	}
 }
 
+// doltInternalServicePorts returns the service ports for the internal headless service.
+func doltInternalServicePorts(doltdb *doltv1alpha.DoltDB) []v1.ServicePort {
+	return []v1.ServicePort{
+		{
+			Port: doltdb.Spec.Server.Listener.Port,
+			Name: DoltMySQLPortName,
+		},
+		{
+			Port: doltdb.Spec.Server.Cluster.RemotesAPI.Port,
+			Name: DoltRemotesAPIPortName,
+		},
+	}
+}
+
 // BuildDoltInternalService creates a headless service for the Dolt cluster.
 func (b *Builder) BuildDoltInternalService(doltdb *doltv1alpha.DoltDB) (*v1.Service, error) {
 	objMeta := NewMetadataBuilder(doltdb.InternalServiceKey()).
@@ -30,7 +44,7 @@ func (b *Builder) BuildDoltInternalService(doltdb *doltv1alpha.DoltDB) (*v1.Serv
 	svc := &v1.Service{
 		ObjectMeta: objMeta,
 		Spec: v1.ServiceSpec{
-			Ports:     doltServicePorts(doltdb),
+			Ports:     doltInternalServicePorts(doltdb),
 			ClusterIP: "None",
 			Selector:  labels,
 		},

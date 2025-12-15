@@ -77,6 +77,21 @@ var _ = Describe("DoltDB Controller", func() {
 			g.Expect(headlessService.Spec.ClusterIP).To(Equal("None"))
 			g.Expect(headlessService.Spec.Selector).To(HaveKeyWithValue("app.kubernetes.io/name", testDoltDB.Name))
 
+			// Verify ports
+			g.Expect(headlessService.Spec.Ports).To(HaveLen(2))
+
+			// Check MySQL port
+			mysqlPort := findServicePort(headlessService.Spec.Ports, builder.DoltMySQLPortName)
+			g.Expect(mysqlPort).NotTo(BeNil())
+			g.Expect(mysqlPort.Port).To(Equal(testDoltDB.Spec.Server.Listener.Port))
+			g.Expect(mysqlPort.Name).To(Equal(builder.DoltMySQLPortName))
+
+			// Check RemotesAPI port
+			remotesAPIPort := findServicePort(headlessService.Spec.Ports, builder.DoltRemotesAPIPortName)
+			g.Expect(remotesAPIPort).NotTo(BeNil())
+			g.Expect(remotesAPIPort.Port).To(Equal(testDoltDB.Spec.Server.Cluster.RemotesAPI.Port))
+			g.Expect(remotesAPIPort.Name).To(Equal(builder.DoltRemotesAPIPortName))
+
 			return true
 		}, testTimeout, testInterval).Should(BeTrue())
 
@@ -92,6 +107,15 @@ var _ = Describe("DoltDB Controller", func() {
 			g.Expect(primaryService.ObjectMeta.Annotations).To(HaveKeyWithValue("k8s.dolthub.com/test", "test"))
 			g.Expect(primaryService.Spec.Selector).To(HaveKeyWithValue(dolt.RoleLabel, dolt.PrimaryRoleValue.String()))
 			g.Expect(primaryService.Spec.Selector).To(HaveKeyWithValue("app.kubernetes.io/name", testDoltDB.Name))
+
+			// Verify ports
+			g.Expect(primaryService.Spec.Ports).To(HaveLen(1))
+
+			// Check MySQL port
+			mysqlPort := findServicePort(primaryService.Spec.Ports, builder.DoltMySQLPortName)
+			g.Expect(mysqlPort).NotTo(BeNil())
+			g.Expect(mysqlPort.Port).To(Equal(testDoltDB.Spec.Server.Listener.Port))
+			g.Expect(mysqlPort.Name).To(Equal(builder.DoltMySQLPortName))
 
 			return true
 		}, testTimeout, testInterval).Should(BeTrue())
@@ -109,6 +133,15 @@ var _ = Describe("DoltDB Controller", func() {
 			g.Expect(readerService.ObjectMeta.Annotations).To(HaveKeyWithValue("k8s.dolthub.com/test", "test"))
 			g.Expect(readerService.Spec.Selector).To(HaveKeyWithValue(dolt.RoleLabel, dolt.StandbyRoleValue.String()))
 			g.Expect(readerService.Spec.Selector).To(HaveKeyWithValue("app.kubernetes.io/name", testDoltDB.Name))
+
+			// Verify ports
+			g.Expect(readerService.Spec.Ports).To(HaveLen(1))
+
+			// Check MySQL port
+			mysqlPort := findServicePort(readerService.Spec.Ports, builder.DoltMySQLPortName)
+			g.Expect(mysqlPort).NotTo(BeNil())
+			g.Expect(mysqlPort.Port).To(Equal(testDoltDB.Spec.Server.Listener.Port))
+			g.Expect(mysqlPort.Name).To(Equal(builder.DoltMySQLPortName))
 
 			return true
 		}, testTimeout, testInterval).Should(BeTrue())

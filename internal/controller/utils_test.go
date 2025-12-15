@@ -335,3 +335,13 @@ func testSQLConnection(ctx context.Context, doltdb *doltv1alpha.DoltDB, username
 		return true
 	}, testTimeout, testInterval).Should(BeTrue())
 }
+
+// findServicePort is a helper function to find a service port by name
+func findServicePort(ports []corev1.ServicePort, name string) *corev1.ServicePort {
+	for i := range ports {
+		if ports[i].Name == name {
+			return &ports[i]
+		}
+	}
+	return nil
+}

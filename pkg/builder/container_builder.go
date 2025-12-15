@@ -16,9 +16,10 @@ const (
 	DoltContainerName     = "dolt"
 	DoltInitContainerName = "dolt-init"
 
-	DoltMySQLPortName    = "dolt"
-	DoltMetricsPortName  = "dolt-metrics"
-	DoltProfilerPortName = "dolt-profiler"
+	DoltMySQLPortName      = "tcp-dolt"
+	DoltRemotesAPIPortName = "grpc-remotesapi"
+	DoltMetricsPortName    = "http-metrics"
+	DoltProfilerPortName   = "http-profiler"
 
 	DoltDataVolume   = "dolt-data"
 	DoltConfigVolume = "dolt-config"
