@@ -3,7 +3,10 @@
 package builder
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"sort"
 
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
 	corev1 "k8s.io/api/core/v1"
@@ -17,6 +20,28 @@ type ConfigMapOpts struct {
 	Metadata *metav1.ObjectMeta
 	Key      types.NamespacedName
 	Data     map[string]string
+}
+
+// HashConfigMapData computes a SHA256 hash of the ConfigMap data.
+// The keys are sorted to ensure consistent hash values regardless of map iteration order.
+func HashConfigMapData(data map[string]string) string {
+	if len(data) == 0 {
+		return ""
+	}
+
+	// Sort keys for deterministic hashing
+	keys := make([]string, 0, len(data))
+	for k := range data {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	h := sha256.New()
+	for _, k := range keys {
+		h.Write([]byte(fmt.Sprintf("%s=%s;", k, data[k])))
+	}
+
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 // BuildConfigMap creates a ConfigMap based on the provided options and sets the owner reference.

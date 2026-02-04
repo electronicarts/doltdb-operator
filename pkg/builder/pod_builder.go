@@ -4,6 +4,7 @@ package builder
 
 import (
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
+	"github.com/electronicarts/doltdb-operator/pkg/dolt"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -64,16 +65,25 @@ func doltVolumes(doltdb *doltv1alpha.DoltDB) []corev1.Volume {
 	}
 }
 
-func doltPodTemplate(metadata metav1.ObjectMeta, doltdb *doltv1alpha.DoltDB) corev1.PodTemplateSpec {
+func doltPodTemplate(metadata metav1.ObjectMeta, doltdb *doltv1alpha.DoltDB, configMapHash string) corev1.PodTemplateSpec {
 	labels := NewLabelsBuilder().
 		WithDoltSelectorLabels(doltdb).
 		WithVersion(doltdb.Spec.EngineVersion).
 		Build()
 
+	// Include ConfigMap hash annotation to trigger pod restarts when ConfigMap content changes
+	annotations := map[string]string{}
+	for k, v := range doltdb.Spec.PodAnnotations {
+		annotations[k] = v
+	}
+	if configMapHash != "" {
+		annotations[dolt.ConfigMapHashAnnotation] = configMapHash
+	}
+
 	objMeta := NewMetadataBuilder(client.ObjectKeyFromObject(doltdb)).
 		WithMetadata(&metadata).
 		WithLabels(labels).
-		WithAnnotations(doltdb.Spec.PodAnnotations).
+		WithAnnotations(annotations).
 		Build()
 
 	return corev1.PodTemplateSpec{

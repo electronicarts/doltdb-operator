@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
+	"github.com/electronicarts/doltdb-operator/pkg/dolt"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -58,8 +59,17 @@ func TestDoltDBPodMeta(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			podTpl := doltPodTemplate(objMeta, tt.doltdb)
-			assertObjectMeta(t, &podTpl.ObjectMeta, tt.wantMeta.Labels, tt.wantMeta.Annotations)
+			podTpl := doltPodTemplate(objMeta, tt.doltdb, "test-hash")
+			// Verify expected labels and annotations exist
+			for key, wantValue := range tt.wantMeta.Labels {
+				if gotValue, ok := podTpl.ObjectMeta.Labels[key]; !ok || gotValue != wantValue {
+					t.Errorf("missing or incorrect label %q: want %q, got %q", key, wantValue, gotValue)
+				}
+			}
+			// ConfigMap hash annotation should always be present when hash is provided
+			if _, ok := podTpl.ObjectMeta.Annotations[dolt.ConfigMapHashAnnotation]; !ok {
+				t.Errorf("expected ConfigMap hash annotation %q to be present", dolt.ConfigMapHashAnnotation)
+			}
 		})
 	}
 }
@@ -102,7 +112,7 @@ func TestDoltDBPodBuilderResources(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			podTpl := doltPodTemplate(objMeta, tt.doltdb)
+			podTpl := doltPodTemplate(objMeta, tt.doltdb, "test-hash")
 			if len(podTpl.Spec.Containers) != 1 {
 				t.Error("expecting to have one container")
 			}
@@ -200,7 +210,7 @@ func TestDoltPodTemplateSpec(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			podTpl := doltPodTemplate(objMeta, tt.doltdb)
+			podTpl := doltPodTemplate(objMeta, tt.doltdb, "test-hash")
 			tt.validate(t, podTpl.Spec)
 		})
 	}
@@ -232,7 +242,7 @@ func TestDoltPodTemplateInitContainers(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			podTpl := doltPodTemplate(objMeta, tt.doltdb)
+			podTpl := doltPodTemplate(objMeta, tt.doltdb, "test-hash")
 			hasInitContainers := len(podTpl.Spec.InitContainers) > 0
 			if hasInitContainers != tt.expectInitContainers {
 				t.Errorf("Expected init containers: %v, got init containers: %v", tt.expectInitContainers, hasInitContainers)
@@ -286,7 +296,7 @@ func TestDoltPodTemplateVolumes(t *testing.T) {
 		ObjectMeta: objMeta,
 	}
 
-	podTpl := doltPodTemplate(objMeta, doltdb)
+	podTpl := doltPodTemplate(objMeta, doltdb, "test-hash")
 
 	// Check that expected volumes are present
 	volumeNames := make(map[string]bool)

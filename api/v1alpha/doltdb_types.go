@@ -70,9 +70,16 @@ type DoltDBSpec struct {
 	// +kubebuilder:default:=false
 	// +optional
 	AutoMinorVersionUpgrade *bool `json:"autoMinorVersionUpgrade,omitempty"`
-	// UpdateStrategy defines the update strategy for the StatefulSet object.
+	// UpdateStrategy defines how the operator should handle pod updates when the DoltDB spec changes.
+	// Valid values are:
+	//  - ReplicasFirstPrimaryLast (default): Automatically updates pods, replicas first then primary
+	//  - RollingUpdate: Uses Kubernetes native rolling update (highest to lowest ordinal)
+	//  - OnDelete: Pods are only updated when manually deleted
+	//  - Never: Pods are never automatically updated, ConfigMap changes won't trigger restarts
+	// +kubebuilder:validation:Enum=ReplicasFirstPrimaryLast;RollingUpdate;OnDelete;Never
+	// +kubebuilder:default:="ReplicasFirstPrimaryLast"
 	// +optional
-	UpdateStrategy *appsv1.StatefulSetUpdateStrategy `json:"updateStrategy,omitempty"`
+	UpdateStrategy UpdateType `json:"updateStrategy,omitempty"`
 	// Replication configures high availability via replication.
 	// This feature is still in alpha; use Galera for a more production-ready HA solution.
 	// +optional
@@ -155,26 +162,6 @@ const (
 
 	// Remote enables Remote-based replication
 	Remote ClusterType = "Remote"
-)
-
-// UpdateType defines the type of update for a Dolt Cluster resource.
-type UpdateType string
-
-const (
-	// ReplicasFirstPrimaryLastUpdateType indicates that the update will be applied to all replica Pods first and later on to the primary Pod.
-	// The updates are applied one by one waiting until each Pod passes the readiness probe
-	// i.e. the Pod gets synced and it is ready to receive traffic.
-	ReplicasFirstPrimaryLastUpdateType UpdateType = "ReplicasFirstPrimaryLast"
-	// RollingUpdateUpdateType indicates that the update will be applied by the StatefulSet controller using the RollingUpdate strategy.
-	// This strategy is unaware of the roles that the Pod have (primary or replica) and it will
-	// perform the update following the StatefulSet ordinal, from higher to lower.
-	RollingUpdateUpdateType UpdateType = "RollingUpdate"
-	// OnDeleteUpdateType indicates that the update will be applied by the StatefulSet controller using the OnDelete strategy.
-	// The update will be done when the Pods get manually deleted by the user.
-	OnDeleteUpdateType UpdateType = "OnDelete"
-	// NeverUpdateType indicates that the StatefulSet will never be updated.
-	// This can be used to roll out updates progressively to a fleet of instances.
-	NeverUpdateType UpdateType = "Never"
 )
 
 // DoltDBStatus defines the observed state of DoltDB

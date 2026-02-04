@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
-	appsv1 "k8s.io/api/apps/v1"
+	"github.com/electronicarts/doltdb-operator/pkg/dolt"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,9 +32,7 @@ func TestDoltDBImagePullSecrets(t *testing.T) {
 			doltdb: &doltv1alpha.DoltDB{
 				ObjectMeta: objMeta,
 				Spec: doltv1alpha.DoltDBSpec{
-					UpdateStrategy: &appsv1.StatefulSetUpdateStrategy{
-						Type: appsv1.RollingUpdateStatefulSetStrategyType,
-					},
+					UpdateStrategy: doltv1alpha.ReplicasFirstPrimaryLastUpdateType,
 				},
 			},
 			wantPullSecrets: nil,
@@ -49,9 +47,7 @@ func TestDoltDBImagePullSecrets(t *testing.T) {
 							Name: "harbor-registry",
 						},
 					},
-					UpdateStrategy: &appsv1.StatefulSetUpdateStrategy{
-						Type: appsv1.RollingUpdateStatefulSetStrategyType,
-					},
+					UpdateStrategy: doltv1alpha.ReplicasFirstPrimaryLastUpdateType,
 				},
 			},
 			wantPullSecrets: []corev1.LocalObjectReference{
@@ -64,7 +60,7 @@ func TestDoltDBImagePullSecrets(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			job, err := builder.BuildDoltStatefulSet(client.ObjectKeyFromObject(tt.doltdb), tt.doltdb)
+			job, err := builder.BuildDoltStatefulSet(client.ObjectKeyFromObject(tt.doltdb), tt.doltdb, "test-hash")
 			if err != nil {
 				t.Fatalf("unexpected error building StatefulSet: %v", err)
 			}
@@ -92,10 +88,8 @@ func TestDoltDBStatefulSetMeta(t *testing.T) {
 			doltdb: &doltv1alpha.DoltDB{
 				ObjectMeta: objMeta,
 				Spec: doltv1alpha.DoltDBSpec{
-					EngineVersion: "1.43.5",
-					UpdateStrategy: &appsv1.StatefulSetUpdateStrategy{
-						Type: appsv1.RollingUpdateStatefulSetStrategyType,
-					},
+					EngineVersion:  "1.43.5",
+					UpdateStrategy: doltv1alpha.ReplicasFirstPrimaryLastUpdateType,
 				},
 			},
 			podAnnotations: nil,
@@ -128,12 +122,29 @@ func TestDoltDBStatefulSetMeta(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sts, err := builder.BuildDoltStatefulSet(client.ObjectKeyFromObject(tt.doltdb), tt.doltdb)
+			sts, err := builder.BuildDoltStatefulSet(client.ObjectKeyFromObject(tt.doltdb), tt.doltdb, "test-hash")
 			if err != nil {
 				t.Fatalf("unexpected error building DoltDB StatefulSet: %v", err)
 			}
 			assertObjectMeta(t, &sts.ObjectMeta, tt.wantMeta.Labels, tt.wantMeta.Annotations)
-			assertObjectMeta(t, &sts.Spec.Template.ObjectMeta, tt.wantPodMeta.Labels, tt.wantPodMeta.Annotations)
+
+			// For pod template annotations, we need to verify the expected ones exist
+			// The ConfigMap hash annotation is dynamically generated
+			for key, wantValue := range tt.wantPodMeta.Annotations {
+				if gotValue, ok := sts.Spec.Template.ObjectMeta.Annotations[key]; !ok || gotValue != wantValue {
+					t.Errorf("missing or incorrect pod annotation %q: want %q, got %q", key, wantValue, gotValue)
+				}
+			}
+			// Verify ConfigMap hash annotation is present
+			if _, ok := sts.Spec.Template.ObjectMeta.Annotations[dolt.ConfigMapHashAnnotation]; !ok {
+				t.Errorf("expected ConfigMap hash annotation %q to be present", dolt.ConfigMapHashAnnotation)
+			}
+			// Verify expected labels
+			for key, wantValue := range tt.wantPodMeta.Labels {
+				if gotValue, ok := sts.Spec.Template.ObjectMeta.Labels[key]; !ok || gotValue != wantValue {
+					t.Errorf("missing or incorrect pod label %q: want %q, got %q", key, wantValue, gotValue)
+				}
+			}
 		})
 	}
 }

@@ -47,3 +47,28 @@ func (c CleanupPolicy) Validate() error {
 		return fmt.Errorf("invalid cleanupPolicy: %v", c)
 	}
 }
+
+// UpdateType defines the type of update strategy for the DoltDB StatefulSet.
+// +kubebuilder:validation:Enum=ReplicasFirstPrimaryLast;RollingUpdate;OnDelete;Never
+type UpdateType string
+
+const (
+	// ReplicasFirstPrimaryLastUpdateType updates replicas first, then the primary.
+	// This is the default and recommended update type for production clusters.
+	// Pods are restarted one at a time in a controlled manner.
+	ReplicasFirstPrimaryLastUpdateType UpdateType = "ReplicasFirstPrimaryLast"
+
+	// RollingUpdateUpdateType uses Kubernetes native rolling update strategy.
+	// Pods are updated in reverse ordinal order (highest to lowest).
+	RollingUpdateUpdateType UpdateType = "RollingUpdate"
+
+	// OnDeleteUpdateType requires manual deletion of pods to trigger updates.
+	// The operator will update the StatefulSet but pods will only be updated
+	// when they are manually deleted.
+	OnDeleteUpdateType UpdateType = "OnDelete"
+
+	// NeverUpdateType prevents any automatic pod updates.
+	// The ConfigMap hash annotation will not be added to pods, so ConfigMap
+	// changes will not trigger pod restarts.
+	NeverUpdateType UpdateType = "Never"
+)

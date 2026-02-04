@@ -7,7 +7,9 @@ import (
 	"fmt"
 
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
+	"github.com/electronicarts/doltdb-operator/pkg/builder"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -43,10 +45,31 @@ func (r *Reconciler) ReconcileWithUpdates(ctx context.Context, desiredSts *appsv
 	return r.Patch(ctx, &existingSts, patch)
 }
 
+// getConfigMapHash fetches the ConfigMap for the DoltDB and computes its content hash.
+// This hash is used in pod template annotations to trigger pod restarts when ConfigMap changes.
+func (r *Reconciler) getConfigMapHash(ctx context.Context, doltdb *doltv1alpha.DoltDB) (string, error) {
+	var configMap corev1.ConfigMap
+	configMapKey := doltdb.DefaultConfigMapKey()
+	if err := r.Get(ctx, configMapKey, &configMap); err != nil {
+		if apierrors.IsNotFound(err) {
+			// ConfigMap not yet created, return empty hash
+			return "", nil
+		}
+		return "", fmt.Errorf("error getting ConfigMap: %v", err)
+	}
+	return builder.HashConfigMapData(configMap.Data), nil
+}
+
 func (r *Reconciler) reconcileStatefulSet(ctx context.Context, doltdb *doltv1alpha.DoltDB) (ctrl.Result, error) {
 	key := client.ObjectKeyFromObject(doltdb)
 
-	desiredSts, err := r.builder.BuildDoltStatefulSet(key, doltdb)
+	// Get the ConfigMap hash to include in pod template annotations
+	configMapHash, err := r.getConfigMapHash(ctx, doltdb)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	desiredSts, err := r.builder.BuildDoltStatefulSet(key, doltdb, configMapHash)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("error building StatefulSet: %v", err)
 	}

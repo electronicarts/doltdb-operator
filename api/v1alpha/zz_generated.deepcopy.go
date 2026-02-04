@@ -9,7 +9,7 @@ package v1alpha
 import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -340,11 +340,6 @@ func (in *DoltDBSpec) DeepCopyInto(out *DoltDBSpec) {
 		in, out := &in.AutoMinorVersionUpgrade, &out.AutoMinorVersionUpgrade
 		*out = new(bool)
 		**out = **in
-	}
-	if in.UpdateStrategy != nil {
-		in, out := &in.UpdateStrategy, &out.UpdateStrategy
-		*out = new(appsv1.StatefulSetUpdateStrategy)
-		(*in).DeepCopyInto(*out)
 	}
 	if in.Replication != nil {
 		in, out := &in.Replication, &out.Replication

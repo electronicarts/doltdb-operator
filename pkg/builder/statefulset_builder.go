@@ -20,7 +20,10 @@ import (
 
 // BuildDoltStatefulSet constructs a StatefulSet for a DoltDB based on the provided NamespacedName and DoltDB object.
 // It sets up the metadata, labels, volume claim templates, and pod template for the StatefulSet.
-func (b *Builder) BuildDoltStatefulSet(key types.NamespacedName, doltdb *doltv1alpha.DoltDB) (*appsv1.StatefulSet, error) {
+// The configMapHash parameter is included in the pod template annotations to trigger pod restarts
+// when the ConfigMap content changes (e.g., when replicas are scaled up or down).
+// If UpdateStrategy is set to "Never", the configMapHash is not included in the pod template.
+func (b *Builder) BuildDoltStatefulSet(key types.NamespacedName, doltdb *doltv1alpha.DoltDB, configMapHash string) (*appsv1.StatefulSet, error) {
 	labels := NewLabelsBuilder().
 		WithDoltSelectorLabels(doltdb).
 		WithVersion(doltdb.Spec.EngineVersion).
@@ -37,6 +40,13 @@ func (b *Builder) BuildDoltStatefulSet(key types.NamespacedName, doltdb *doltv1a
 
 	matchLabels := NewLabelsBuilder().WithDoltSelectorLabels(doltdb).Build()
 
+	// If UpdateStrategy is "Never", don't include the ConfigMap hash in pod annotations
+	// This prevents automatic pod restarts when ConfigMap changes
+	podConfigMapHash := configMapHash
+	if doltdb.Spec.UpdateStrategy == doltv1alpha.NeverUpdateType {
+		podConfigMapHash = ""
+	}
+
 	statefulSet := &appsv1.StatefulSet{
 		ObjectMeta: objMeta,
 		Spec: appsv1.StatefulSetSpec{
@@ -44,12 +54,10 @@ func (b *Builder) BuildDoltStatefulSet(key types.NamespacedName, doltdb *doltv1a
 			Selector: &metav1.LabelSelector{
 				MatchLabels: matchLabels,
 			},
-			ServiceName: doltdb.InternalServiceKey().Name,
-			UpdateStrategy: appsv1.StatefulSetUpdateStrategy{
-				Type: appsv1.OnDeleteStatefulSetStrategyType,
-			},
+			ServiceName:          doltdb.InternalServiceKey().Name,
+			UpdateStrategy:       doltStatefulSetUpdateStrategy(doltdb),
 			Replicas:             &doltdb.Spec.Replicas,
-			Template:             doltPodTemplate(objMeta, doltdb),
+			Template:             doltPodTemplate(objMeta, doltdb, podConfigMapHash),
 			VolumeClaimTemplates: doltVolumeClaimTemplates(objMeta, doltdb),
 		},
 	}
@@ -59,6 +67,37 @@ func (b *Builder) BuildDoltStatefulSet(key types.NamespacedName, doltdb *doltv1a
 	}
 
 	return statefulSet, nil
+}
+
+// doltStatefulSetUpdateStrategy returns the Kubernetes StatefulSet update strategy
+// based on the DoltDB UpdateStrategy setting.
+// This follows the same pattern as the MariaDB operator.
+func doltStatefulSetUpdateStrategy(doltdb *doltv1alpha.DoltDB) appsv1.StatefulSetUpdateStrategy {
+	switch doltdb.Spec.UpdateStrategy {
+	case doltv1alpha.ReplicasFirstPrimaryLastUpdateType, "":
+		// Operator manages pod deletions (replicas first, then primary)
+		return appsv1.StatefulSetUpdateStrategy{
+			Type: appsv1.OnDeleteStatefulSetStrategyType,
+		}
+	case doltv1alpha.RollingUpdateUpdateType:
+		// Kubernetes handles updates natively (highest to lowest ordinal)
+		return appsv1.StatefulSetUpdateStrategy{
+			Type: appsv1.RollingUpdateStatefulSetStrategyType,
+		}
+	case doltv1alpha.OnDeleteUpdateType:
+		// User must manually delete pods to trigger updates
+		return appsv1.StatefulSetUpdateStrategy{
+			Type: appsv1.OnDeleteStatefulSetStrategyType,
+		}
+	case doltv1alpha.NeverUpdateType:
+		// StatefulSet will never be updated
+		return appsv1.StatefulSetUpdateStrategy{}
+	default:
+		// Default to OnDelete for safety
+		return appsv1.StatefulSetUpdateStrategy{
+			Type: appsv1.OnDeleteStatefulSetStrategyType,
+		}
+	}
 }
 
 // doltVolumeClaimTemplates constructs a PersistentVolumeClaim for the given DoltDB.

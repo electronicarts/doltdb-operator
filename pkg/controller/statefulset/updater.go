@@ -25,10 +25,16 @@ import (
 )
 
 func shouldReconcileUpdates(doltdb *doltv1alpha.DoltDB) bool {
+	// Skip updates if DoltDB is in a transitional state
 	if doltdb.IsResizingStorage() || doltdb.IsSwitchingPrimary() {
 		return false
 	}
-	return true
+	// Only automatically reconcile updates for ReplicasFirstPrimaryLast strategy
+	// - RollingUpdate: Kubernetes handles updates natively (no operator intervention)
+	// - OnDelete: User must manually delete pods to trigger updates
+	// - Never: No automatic updates at all
+	return doltdb.Spec.UpdateStrategy == "" ||
+		doltdb.Spec.UpdateStrategy == doltv1alpha.ReplicasFirstPrimaryLastUpdateType
 }
 
 func (r *Reconciler) reconcileUpdates(ctx context.Context, doltdb *doltv1alpha.DoltDB) (ctrl.Result, error) {

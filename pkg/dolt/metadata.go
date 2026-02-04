@@ -8,6 +8,10 @@ const (
 	WatchLabel            = "k8s.dolthub.com/watch"
 	Annotation            = "k8s.dolthub.com/doltdb"
 	ReplicationAnnotation = "k8s.dolthub.com/replication"
+	// ConfigMapHashAnnotationKey is the annotation key used to store the ConfigMap content hash
+	// in the pod template. When the ConfigMap content changes, this hash changes, causing
+	// Kubernetes to treat the pod template as updated and trigger pod restarts.
+	ConfigMapHashAnnotation = "k8s.dolthub.com/configmap-hash"
 
 	UserFinalizerName     = "user.k8s.dolthub.com/finalizer"
 	DatabaseFinalizerName = "database.k8s.dolthub.com/finalizer"
