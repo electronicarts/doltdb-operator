@@ -1,8 +1,5 @@
 # GitLab CI yaml reference: https://docs.gitlab.com/ee/ci/yaml/index.html
 include:
-  - project: "eadp-common/dangerbot"
-    ref: main
-    file: "/mr-tools.yml"
   - project: "REDACTED"
     ref: main
     file: "/deployment-common.yml"
