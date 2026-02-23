@@ -73,6 +73,8 @@ func main() {
 	var logSql bool
 	var requeueSql time.Duration
 	var watchNamespaces string
+	var leaderElectionID string
+	var leaderElectionNamespace string
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
@@ -80,6 +82,11 @@ func main() {
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+	flag.StringVar(&leaderElectionID, "leader-election-id", "k8s.dolthub.com",
+		"The name of the leader election ID to use. Multiple operators can coordinate by using the same ID and namespace.")
+	flag.StringVar(&leaderElectionNamespace, "leader-election-namespace", "",
+		"The namespace where the leader election resource will be created. If empty, uses the operator's namespace. "+
+			"For multi-instance deployments, set this to a shared namespace.")
 	flag.BoolVar(&secureMetrics, "metrics-secure", true,
 		"If set, the metrics endpoint is served securely via HTTPS. Use --metrics-secure=false to use HTTP instead.")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
@@ -115,10 +122,16 @@ func main() {
 		Scheme:                 scheme,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "k8s.dolthub.com",
+		LeaderElectionID:       leaderElectionID,
 		Controller: config.Controller{
 			MaxConcurrentReconciles: maxConcurrentReconciles,
 		},
+	}
+
+	// Set leader election namespace if specified
+	if leaderElectionNamespace != "" {
+		mgrOpts.LeaderElectionNamespace = leaderElectionNamespace
+		setupLog.Info("Using shared leader election namespace", "namespace", leaderElectionNamespace)
 	}
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled

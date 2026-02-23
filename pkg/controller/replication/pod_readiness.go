@@ -5,7 +5,9 @@ package replication
 import (
 	"context"
 	"fmt"
+	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/hashicorp/go-multierror"
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
 	"github.com/electronicarts/doltdb-operator/pkg/builder"
@@ -71,28 +73,19 @@ func (r *PodReadinessController) ReconcilePodNotReady(ctx context.Context, pod c
 
 	fromIndex := doltdb.Status.CurrentPrimaryPodIndex
 
-	// TODO: implement minCaughtUpStandbys logic https://github.com/dolthub/doltclusterctl/blob/main/commands.go#L144
-	// minCaughtUpStandbys := ptr.Deref(doltdb.Replication().Primary.MinCaughtUpStandbys, -1)
-	// if minCaughtUpStandbys != -1 {
-	// 	toIndex, err := r.replConfig.GetNextPrimary(ctx, doltdb, nil, *doltdb.Status.ReplicationEpoch)
-	// 	if err != nil {
-	// 		return fmt.Errorf("error getting next primary: %v", err)
-	// 	}
-	// }
-	// clientSet := NewReplicationClientSet(doltdb, r.refResolver)
-	// defer clientSet.close()
-
-	// dbstates := GetDBStates(ctx, doltdb, clientSet)
-
-	// var toIndex *int
-	// toIndex = ptr.To(dolt.PickNextPrimary(dbstates))
-
-	// if toIndex == fromIndex || *toIndex < 0 {
-	toIndex, err := health.HealthyDoltDBReplica(ctx, r, doltdb)
+	// Select failover candidate using replication state when possible.
+	// Query dolt_cluster_status from each healthy standby to find the one
+	// with the most recent replication data, preventing promotion of empty
+	// or stale pods that could cause data loss.
+	toIndex, err := r.selectFailoverCandidate(ctx, doltdb, logger)
 	if err != nil {
-		return fmt.Errorf("error getting healthy Dolt replica: %v", err)
+		logger.Info("Unable to select failover candidate via replication state, falling back to pod readiness",
+			"error", err)
+		toIndex, err = health.HealthyDoltDBReplica(ctx, r, doltdb)
+		if err != nil {
+			return fmt.Errorf("error getting healthy Dolt replica: %v", err)
+		}
 	}
-	// }
 
 	var errBundle *multierror.Error
 	err = r.patch(ctx, doltdb, func(doltdb *doltv1alpha.DoltDB) {
@@ -114,6 +107,85 @@ func (r *PodReadinessController) ReconcilePodNotReady(ctx context.Context, pod c
 		"Switching primary from index '%d' to index '%d'", *fromIndex, *toIndex)
 
 	return nil
+}
+
+// selectFailoverCandidate picks the best standby for promotion by checking
+// replication state via dolt_cluster_status. It prefers the standby with the
+// most recently updated data and refuses to select pods with no user databases.
+func (r *PodReadinessController) selectFailoverCandidate(
+	ctx context.Context,
+	doltdb *doltv1alpha.DoltDB,
+	logger logr.Logger,
+) (*int, error) {
+	healthyStandbys, err := health.HealthyDoltDBStandbys(ctx, r, doltdb)
+	if err != nil {
+		return nil, fmt.Errorf("error listing healthy standbys: %v", err)
+	}
+	if len(healthyStandbys) == 0 {
+		return nil, fmt.Errorf("no healthy standbys available")
+	}
+
+	clientSet := NewReplicationClientSet(doltdb, r.refResolver)
+	defer func() {
+		if err := clientSet.Close(); err != nil {
+			logger.V(1).Error(err, "error closing client set")
+		}
+	}()
+
+	var bestIndex *int
+	var bestLastUpdate time.Time
+
+	for _, standbyPod := range healthyStandbys {
+		podIndex, err := statefulset.PodIndex(standbyPod.Name)
+		if err != nil {
+			logger.V(1).Info("Error getting pod index, skipping", "pod", standbyPod.Name, "error", err)
+			continue
+		}
+
+		client, err := clientSet.ClientForIndex(ctx, *podIndex)
+		if err != nil {
+			logger.V(1).Info("Unable to connect to standby, skipping", "pod", standbyPod.Name, "error", err)
+			continue
+		}
+
+		// Check replication freshness via the standby's own cluster status.
+		// A standby that has been actively replicating will have last_update
+		// timestamps. An empty/new pod that never replicated will have none.
+		dbState, err := client.GetDBState(ctx)
+		if err != nil {
+			logger.V(1).Info("Unable to get DB state, skipping", "pod", standbyPod.Name, "error", err)
+			continue
+		}
+
+		// Find the oldest LastUpdate across all databases on this standby.
+		// A standby is only as fresh as its least-replicated database.
+		var oldestUpdate time.Time
+		for _, status := range dbState.Status {
+			if status.LastUpdate.Valid {
+				if oldestUpdate.IsZero() || status.LastUpdate.Time.Before(oldestUpdate) {
+					oldestUpdate = status.LastUpdate.Time
+				}
+			}
+		}
+		if oldestUpdate.IsZero() {
+			logger.Info("Standby has no replication timestamps, skipping as failover candidate", "pod", standbyPod.Name)
+			continue
+		}
+
+		// Prefer the standby with the most recent oldest-update (best worst-case freshness)
+		if bestIndex == nil || oldestUpdate.After(bestLastUpdate) {
+			bestIndex = podIndex
+			bestLastUpdate = oldestUpdate
+		}
+	}
+
+	if bestIndex == nil {
+		return nil, fmt.Errorf("no standby with replicated data found for failover")
+	}
+
+	logger.Info("Selected failover candidate based on replication state",
+		"pod-index", *bestIndex, "last-update", bestLastUpdate)
+	return bestIndex, nil
 }
 
 // patch applies a patch to the DoltDB

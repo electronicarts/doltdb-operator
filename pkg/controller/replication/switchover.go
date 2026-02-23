@@ -179,20 +179,41 @@ func (r *ReplicationReconciler) setPrimaryReadOnly(
 	}
 	defer clientSet.RemoveClientFromCache(*doltdb.Status.CurrentPrimaryPodIndex)
 
-	logger.Info("Enabling readonly mode in primary")
+	// Check if the primary is already in standby mode (e.g. from a previous
+	// reconciliation attempt or preStop hook). If so, skip the transition.
+	role, _, err := client.GetRoleAndEpoch(ctx)
+	if err != nil {
+		logger.V(1).Info("Unable to check current role, proceeding with transition", "error", err)
+	} else if role == dolt.StandbyRoleValue.String() {
+		logger.Info("Primary is already in standby mode, skipping transition")
+		return nil
+	}
+
+	logger.Info("Gracefully transitioning primary to standby (draining replication)")
 	r.recorder.Event(
 		doltdb,
 		corev1.EventTypeNormal,
 		doltv1alpha.ReasonReplicationPrimaryReadonly,
-		"Enabling readonly mode in primary",
+		"Gracefully transitioning primary to standby with replication drain",
 	)
 
-	assumeRoleOpts := sql.AssumeRoleOpts{
-		Epoch: doltCtx.nextEpoch,
-		Role:  dolt.StandbyRoleValue,
+	standbyHosts, err := health.StandbyHostFQDNs(ctx, r, doltdb)
+	if err != nil {
+		return fmt.Errorf("error resolving standby hosts for graceful transition: %v", err)
 	}
-	if err := client.AssumeRole(ctx, assumeRoleOpts); err != nil {
-		return fmt.Errorf("error setting primary as readonly: %v", err)
+
+	transitionOpts := sql.TransitionStandbyOpts{
+		Epoch:               doltCtx.nextEpoch,
+		MinCaughtUpStandbys: 1,
+		Hosts:               standbyHosts,
+	}
+	if _, err := client.TransitionToStandby(ctx, transitionOpts); err != nil {
+		// If the server is already read-only, the transition already happened
+		if sql.IsReadOnlyError(err) {
+			logger.Info("Primary is already in read-only mode, transition already completed")
+			return nil
+		}
+		return fmt.Errorf("error gracefully transitioning primary to standby: %v", err)
 	}
 
 	return nil

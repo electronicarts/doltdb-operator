@@ -54,9 +54,12 @@ func (s *DoltDBStatus) UpdateCurrentPrimary(doltdb *DoltDB, index int) {
 	s.CurrentPrimary = &currentPrimary
 }
 
-// UpdateReplicationEpoch updates the current epoch
+// UpdateReplicationEpoch updates the current epoch only if the incoming epoch
+// is greater than or equal to the current one, preventing epoch regression.
 func (s *DoltDBStatus) UpdateReplicationEpoch(epoch int) {
-	// NOTE: should check if incoming epoch is less than current?
+	if s.ReplicationEpoch != nil && epoch < *s.ReplicationEpoch {
+		return
+	}
 	s.ReplicationEpoch = &epoch
 }
 

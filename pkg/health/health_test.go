@@ -334,6 +334,156 @@ func TestIsStatefulSetHealthy(t *testing.T) {
 		})
 	}
 }
+func TestStandbyHostFQDNs(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = doltv1alpha.AddToScheme(scheme)
+	_ = corev1.AddToScheme(scheme)
+
+	tests := []struct {
+		name        string
+		doltdb      *doltv1alpha.DoltDB
+		pods        []corev1.Pod
+		wantCount   int
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name: "returns FQDNs for healthy standbys",
+			doltdb: &doltv1alpha.DoltDB{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "dolt",
+					Namespace: "default",
+				},
+				Spec: doltv1alpha.DoltDBSpec{
+					Replicas: 3,
+				},
+				Status: doltv1alpha.DoltDBStatus{
+					CurrentPrimaryPodIndex: ptr.To(0),
+				},
+			},
+			pods: []corev1.Pod{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "dolt-0",
+						Namespace: "default",
+						Labels: map[string]string{
+							"app.kubernetes.io/name":     "dolt",
+							"app.kubernetes.io/instance": "dolt",
+						},
+					},
+					Status: corev1.PodStatus{
+						Conditions: []corev1.PodCondition{
+							{Type: corev1.PodReady, Status: corev1.ConditionTrue},
+						},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "dolt-1",
+						Namespace: "default",
+						Labels: map[string]string{
+							"app.kubernetes.io/name":     "dolt",
+							"app.kubernetes.io/instance": "dolt",
+						},
+					},
+					Status: corev1.PodStatus{
+						Conditions: []corev1.PodCondition{
+							{Type: corev1.PodReady, Status: corev1.ConditionTrue},
+						},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "dolt-2",
+						Namespace: "default",
+						Labels: map[string]string{
+							"app.kubernetes.io/name":     "dolt",
+							"app.kubernetes.io/instance": "dolt",
+						},
+					},
+					Status: corev1.PodStatus{
+						Conditions: []corev1.PodCondition{
+							{Type: corev1.PodReady, Status: corev1.ConditionTrue},
+						},
+					},
+				},
+			},
+			wantCount: 2,
+		},
+		{
+			name: "no healthy standbys returns error",
+			doltdb: &doltv1alpha.DoltDB{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "dolt",
+					Namespace: "default",
+				},
+				Spec: doltv1alpha.DoltDBSpec{
+					Replicas: 1,
+				},
+				Status: doltv1alpha.DoltDBStatus{
+					CurrentPrimaryPodIndex: ptr.To(0),
+				},
+			},
+			pods: []corev1.Pod{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "dolt-0",
+						Namespace: "default",
+						Labels: map[string]string{
+							"app.kubernetes.io/name":     "dolt",
+							"app.kubernetes.io/instance": "dolt",
+						},
+					},
+					Status: corev1.PodStatus{
+						Conditions: []corev1.PodCondition{
+							{Type: corev1.PodReady, Status: corev1.ConditionTrue},
+						},
+					},
+				},
+			},
+			wantErr:     true,
+			errContains: "no healthy standbys",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(tt.doltdb).Build()
+
+			for _, p := range tt.pods {
+				if err := client.Create(context.Background(), &p); err != nil {
+					t.Fatalf("failed to create pod: %v", err)
+				}
+			}
+
+			hosts, err := StandbyHostFQDNs(context.Background(), client, tt.doltdb)
+			if tt.wantErr {
+				if err == nil {
+					t.Error("expected error, got nil")
+				} else if tt.errContains != "" && !containsStr(err.Error(), tt.errContains) {
+					t.Errorf("expected error containing %q, got %q", tt.errContains, err.Error())
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if len(hosts) != tt.wantCount {
+				t.Errorf("expected %d hosts, got %d: %v", tt.wantCount, len(hosts), hosts)
+			}
+		})
+	}
+}
+
+func containsStr(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
+
 func TestIsServiceHealthy(t *testing.T) {
 	scheme := runtime.NewScheme()
 	_ = corev1.AddToScheme(scheme)

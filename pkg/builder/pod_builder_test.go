@@ -3,6 +3,7 @@
 package builder
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -310,6 +311,165 @@ func TestDoltPodTemplateVolumes(t *testing.T) {
 			t.Errorf("Expected volume %s not found", expectedVol)
 		}
 	}
+}
+
+func TestDoltPodTemplateTerminationGracePeriod(t *testing.T) {
+	objMeta := metav1.ObjectMeta{
+		Name: "test-doltdb-termination",
+	}
+
+	tests := []struct {
+		name     string
+		doltdb   *doltv1alpha.DoltDB
+		wantSecs int64
+	}{
+		{
+			name: "nil defaults to 60",
+			doltdb: &doltv1alpha.DoltDB{
+				ObjectMeta: objMeta,
+				Spec:       doltv1alpha.DoltDBSpec{},
+			},
+			wantSecs: 60,
+		},
+		{
+			name: "custom value",
+			doltdb: &doltv1alpha.DoltDB{
+				ObjectMeta: objMeta,
+				Spec: doltv1alpha.DoltDBSpec{
+					TerminationGracePeriodSeconds: ptr.To(int64(120)),
+				},
+			},
+			wantSecs: 120,
+		},
+		{
+			name: "zero value",
+			doltdb: &doltv1alpha.DoltDB{
+				ObjectMeta: objMeta,
+				Spec: doltv1alpha.DoltDBSpec{
+					TerminationGracePeriodSeconds: ptr.To(int64(0)),
+				},
+			},
+			wantSecs: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			podTpl := doltPodTemplate(objMeta, tt.doltdb, "test-hash")
+			got := podTpl.Spec.TerminationGracePeriodSeconds
+			if got == nil {
+				t.Fatal("TerminationGracePeriodSeconds should not be nil")
+			}
+			if *got != tt.wantSecs {
+				t.Errorf("TerminationGracePeriodSeconds = %d, want %d", *got, tt.wantSecs)
+			}
+		})
+	}
+}
+
+func TestDoltLifecycle(t *testing.T) {
+	tests := []struct {
+		name     string
+		doltdb   *doltv1alpha.DoltDB
+		wantNil  bool
+		wantPort int
+	}{
+		{
+			name: "replication enabled includes lifecycle",
+			doltdb: &doltv1alpha.DoltDB{
+				Spec: doltv1alpha.DoltDBSpec{
+					Replication: &doltv1alpha.Replication{
+						Enabled: true,
+					},
+					Server: doltv1alpha.Server{
+						Listener: doltv1alpha.Listener{Port: 3306},
+					},
+				},
+			},
+			wantNil:  false,
+			wantPort: 3306,
+		},
+		{
+			name: "replication disabled excludes lifecycle",
+			doltdb: &doltv1alpha.DoltDB{
+				Spec: doltv1alpha.DoltDBSpec{
+					Replication: &doltv1alpha.Replication{
+						Enabled: false,
+					},
+				},
+			},
+			wantNil: true,
+		},
+		{
+			name: "nil replication excludes lifecycle",
+			doltdb: &doltv1alpha.DoltDB{
+				Spec: doltv1alpha.DoltDBSpec{},
+			},
+			wantNil: true,
+		},
+		{
+			name: "custom port in lifecycle",
+			doltdb: &doltv1alpha.DoltDB{
+				Spec: doltv1alpha.DoltDBSpec{
+					Replication: &doltv1alpha.Replication{
+						Enabled: true,
+					},
+					Server: doltv1alpha.Server{
+						Listener: doltv1alpha.Listener{Port: 3307},
+					},
+				},
+			},
+			wantNil:  false,
+			wantPort: 3307,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			containers := doltContainers(tt.doltdb)
+			if len(containers) == 0 {
+				t.Fatal("expected at least one container")
+			}
+			lifecycle := containers[0].Lifecycle
+			if tt.wantNil {
+				if lifecycle != nil {
+					t.Error("expected lifecycle to be nil")
+				}
+				return
+			}
+			if lifecycle == nil {
+				t.Fatal("expected lifecycle to not be nil")
+			}
+			if lifecycle.PreStop == nil {
+				t.Fatal("expected preStop to not be nil")
+			}
+			if lifecycle.PreStop.Exec == nil {
+				t.Fatal("expected preStop.exec to not be nil")
+			}
+			cmd := lifecycle.PreStop.Exec.Command
+			if len(cmd) != 3 || cmd[0] != "/bin/sh" || cmd[1] != "-c" {
+				t.Errorf("expected shell command, got %v", cmd)
+			}
+			// Verify the port appears in the command
+			portStr := fmt.Sprintf("--port %d", tt.wantPort)
+			if !contains(cmd[2], portStr) {
+				t.Errorf("expected command to contain %q, got %q", portStr, cmd[2])
+			}
+		})
+	}
+}
+
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && searchString(s, substr)
+}
+
+func searchString(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
 }
 
 // TODO: we should test all other things like volumes, init containers, etc

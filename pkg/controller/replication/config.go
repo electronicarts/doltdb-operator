@@ -40,6 +40,8 @@ func (r *ReplicationConfig) ConfigurePrimary(
 	podIndex int,
 	nextReplicationEpoch int,
 ) error {
+	podName := statefulset.PodName(doltdb.ObjectMeta, podIndex)
+
 	assumeRoleOpts := sqlClient.AssumeRoleOpts{
 		Epoch: nextReplicationEpoch,
 		Role:  dolt.PrimaryRoleValue,
@@ -48,7 +50,7 @@ func (r *ReplicationConfig) ConfigurePrimary(
 	if err := client.AssumeRole(ctx, assumeRoleOpts); err != nil {
 		return fmt.Errorf("error configuring primary role and epoch %d for pod %s: %v",
 			nextReplicationEpoch,
-			statefulset.PodName(doltdb.ObjectMeta, podIndex),
+			podName,
 			err,
 		)
 	}
@@ -89,8 +91,8 @@ func (r *ReplicationConfig) GetNextPrimary(
 
 	minCaughtUpStandbys := ptr.Deref(doltdb.Replication().Primary.MinCaughtUpStandbys, -1)
 	numStandbys := int(doltdb.Spec.Replicas) - 1
-	if minCaughtUpStandbys != -1 {
-		return -1, errors.New("minCaughtUpStandbys must be greater than -1")
+	if minCaughtUpStandbys == -1 {
+		return -1, errors.New("minCaughtUpStandbys must be set to a value greater than -1")
 	}
 	if minCaughtUpStandbys > numStandbys {
 		return -1, errors.New("minCaughtUpStandbys must be less than the number of standbys")

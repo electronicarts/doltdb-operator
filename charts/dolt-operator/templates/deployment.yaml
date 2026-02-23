@@ -30,6 +30,12 @@ spec:
           {{- range .Values.containerArgs }}
           - {{ . }}
           {{- end }}
+          {{- if .Values.leaderElection.id }}
+          - --leader-election-id={{ .Values.leaderElection.id }}
+          {{- end }}
+          {{- if .Values.leaderElection.namespace }}
+          - --leader-election-namespace={{ .Values.leaderElection.namespace }}
+          {{- end }}
           env:
             - name: DOLT_OPERATOR_NAMESPACE
               valueFrom:

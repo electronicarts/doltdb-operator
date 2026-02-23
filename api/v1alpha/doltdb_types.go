@@ -84,6 +84,12 @@ type DoltDBSpec struct {
 	// This feature is still in alpha; use Galera for a more production-ready HA solution.
 	// +optional
 	Replication *Replication `json:"replication,omitempty"`
+	// TerminationGracePeriodSeconds defines the duration in seconds the pod needs to terminate gracefully.
+	// This should be long enough to allow the preStop hook to drain replication when replication is enabled.
+	// +kubebuilder:default:=60
+	// +kubebuilder:validation:Minimum=0
+	// +optional
+	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
 	// TopologySpreadConstraints defines the topology spread constraints for the pod.
 	// +optional
 	TopologySpreadConstrains []v1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`

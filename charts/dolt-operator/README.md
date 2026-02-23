@@ -10,12 +10,19 @@ A Helm chart for Kubernetes deployment of Dolt operator
 |-----|------|---------|-------------|
 | containerArgs[0] | string | `"--leader-elect"` |  |
 | deploymentAnnotations."sidecar.istio.io/inject" | string | `"false"` |  |
+| existingClusterRole | string | `""` | Name of an existing ClusterRole to use when installClusterRole is false. If not set, defaults to the fullname. |
 | fullnameOverride | string | `""` |  |
 | image.pullPolicy | string | `"IfNotPresent"` |  |
 | image.repository | string | `"%%image_repository%%"` |  |
 | image.tag | string | `"%%image_tag%%"` |  |
 | imagePullSecrets | list | `[]` |  |
+| installClusterRole | bool | `true` | A boolean flag indicating whether ClusterRole and ClusterRoleBinding should be installed. Set to false for secondary installations. Default: true. |
+| installCrds | bool | `true` | A boolean flag indicating whether CRDS should be installed. Set to false for secondary installations. Default: true. |
 | keepCrds | bool | `true` | A boolean flag indicating whether CRDS should be kept or deleted when uninstalled with helm. Default: true. |
+| leaderElection.createRole | bool | `true` | Whether to create the leader election Role. Set to false for secondary installations. |
+| leaderElection.existingRole | string | `""` | Name of existing leader election role to use. If not set, defaults to <fullname>-leader-election. |
+| leaderElection.id | string | `"k8s.dolthub.com"` | The ID used for leader election. Multiple operator instances with the same ID and namespace will coordinate. IMPORTANT: For same-namespace deployments, all instances MUST use the same ID. |
+| leaderElection.namespace | string | `""` | The namespace where the leader election ConfigMap will be created. If empty, uses the operator's namespace. For multi-instance deployments in the same namespace, leave this empty. For multi-instance deployments across different namespaces, set to a shared namespace. |
 | nameOverride | string | `""` |  |
 | podAnnotations | object | `{}` |  |
 | podSecurityContext | object | `{}` |  |

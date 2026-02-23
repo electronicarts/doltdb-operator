@@ -3,6 +3,9 @@ include:
   - project: "REDACTED"
     ref: main
     file: "docker.yml"
+  - project: "REDACTED"
+    ref: main
+    file: "utils.yml"
 
 # This is a sub-project and will be triggered as a child pipeline from the root .gitlab-ci.yml.
 # Variables are declared in the root .gitlab-ci.yml.
@@ -11,11 +14,11 @@ workflow:
     - if: $CI_PIPELINE_SOURCE == "parent_pipeline"
 
 .make:
-  extends: .dind
+  extends:
+    - .dind
   retry: 2 # The DinD runners frequently run into errors.
   before_script:
-    - mkdir -p $HOME/.docker
-    - echo $DOCKER_AUTH_CONFIG > $HOME/.docker/config.json
+    - !reference [.docker-login, before_script]
     - apk add --no-cache git bash make
 
 verify-docs:

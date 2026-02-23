@@ -12,6 +12,9 @@ import (
 	"github.com/go-logr/logr"
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
 	"github.com/electronicarts/doltdb-operator/pkg/builder"
+	"github.com/electronicarts/doltdb-operator/pkg/dolt"
+	doltsql "github.com/electronicarts/doltdb-operator/pkg/dolt/sql"
+	"github.com/electronicarts/doltdb-operator/pkg/health"
 	podpkg "github.com/electronicarts/doltdb-operator/pkg/pod"
 	"github.com/electronicarts/doltdb-operator/pkg/wait"
 	appsv1 "k8s.io/api/apps/v1"
@@ -22,6 +25,12 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+)
+
+const (
+	// maxReplicationLagMillis is the maximum acceptable replication lag (in ms) before
+	// allowing primary pod deletion during rolling updates.
+	maxReplicationLagMillis = 5000
 )
 
 func shouldReconcileUpdates(doltdb *doltv1alpha.DoltDB) bool {
@@ -81,7 +90,7 @@ func (r *Reconciler) reconcileUpdates(ctx context.Context, doltdb *doltv1alpha.D
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	if result, err := r.waitForConfiguredReplication(doltdb, logger); !result.IsZero() || err != nil {
+	if result, err := r.waitForReplicationCaughtUp(ctx, doltdb, logger); !result.IsZero() || err != nil {
 		return result, err
 	}
 
@@ -92,7 +101,7 @@ func (r *Reconciler) reconcileUpdates(ctx context.Context, doltdb *doltv1alpha.D
 	}
 
 	logger.Info("Updating primary Pod", "pod", primaryPod.Name)
-	if err := r.updatePod(ctx, doltdbKey, &primaryPod, stsUpdateRevision, logger); err != nil {
+	if err := r.gracefulPrimaryUpdate(ctx, doltdb, doltdbKey, &primaryPod, stsUpdateRevision, logger); err != nil {
 		return ctrl.Result{}, fmt.Errorf("error updating primary Pod '%s': %v", primaryPod.Name, err)
 	}
 	return ctrl.Result{}, nil
@@ -111,18 +120,177 @@ func (r *Reconciler) waitForReadyStatus(ctx context.Context, doltdb *doltv1alpha
 	return ctrl.Result{}, nil
 }
 
-func (r *Reconciler) waitForConfiguredReplication(doltdb *doltv1alpha.DoltDB, logger logr.Logger) (ctrl.Result, error) {
+// waitForReplicationCaughtUp checks that replication is configured and that standbys
+// have caught up with the primary before allowing primary pod deletion.
+func (r *Reconciler) waitForReplicationCaughtUp(
+	ctx context.Context,
+	doltdb *doltv1alpha.DoltDB,
+	logger logr.Logger,
+) (ctrl.Result, error) {
 	if !doltdb.Replication().Enabled {
 		return ctrl.Result{}, nil
 	}
-
 	if !doltdb.IsReplicationConfigured() {
 		logger.V(1).Info("Waiting for Pods to have configured replication.")
 		return ctrl.Result{}, ErrSkipReconciliationPhase
 	}
-	logger.V(1).Info("Pods have configured replication.")
 
+	if doltdb.Status.CurrentPrimaryPodIndex == nil {
+		logger.V(1).Info("Waiting for primary pod index to be set.")
+		return ctrl.Result{RequeueAfter: 1 * time.Second}, nil
+	}
+
+	// Verify at least one standby pod is Ready before proceeding.
+	// A just-restarted standby may not appear in dolt_cluster_status yet,
+	// so we check pod readiness first to avoid a false "all caught up".
+	healthyStandbys, err := health.HealthyDoltDBStandbys(ctx, r, doltdb)
+	if err != nil {
+		logger.V(1).Info("Unable to list healthy standbys, requeuing", "error", err)
+		return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
+	}
+	if len(healthyStandbys) == 0 {
+		logger.V(0).Info("No healthy standby pods found, waiting before updating primary")
+		return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
+	}
+
+	primaryClient, err := doltsql.NewInternalClientWithPodIndex(
+		ctx, doltdb, r.refResolver, *doltdb.Status.CurrentPrimaryPodIndex,
+	)
+	if err != nil {
+		logger.V(1).Info("Unable to connect to primary to check replication lag, proceeding", "error", err)
+		return ctrl.Result{}, nil
+	}
+	defer func() { _ = primaryClient.Close() }()
+
+	statuses, err := primaryClient.GetClusterStatus(ctx)
+	if err != nil {
+		logger.V(1).Info("Unable to query cluster status, proceeding", "error", err)
+		return ctrl.Result{}, nil
+	}
+
+	// If the primary reports no standby statuses, the standby hasn't connected yet.
+	if len(statuses) == 0 {
+		logger.V(0).Info("No replication statuses reported by primary, standby may still be connecting")
+		return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
+	}
+
+	for _, status := range statuses {
+		if status.ReplicationLag.Valid && status.ReplicationLag.Int64 > maxReplicationLagMillis {
+			logger.V(0).Info(
+				"Replication lag too high, waiting before updating primary",
+				"remote", status.Remote,
+				"lag_ms", status.ReplicationLag.Int64,
+				"max_ms", maxReplicationLagMillis,
+			)
+			return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
+		}
+		if status.CurrentError.Valid && status.CurrentError.String != "" {
+			logger.V(0).Info(
+				"Replication has errors, waiting before updating primary",
+				"remote", status.Remote,
+				"error", status.CurrentError.String,
+			)
+			return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
+		}
+	}
+
+	logger.V(1).Info("Replication is caught up, safe to update primary.")
 	return ctrl.Result{}, nil
+}
+
+// gracefulPrimaryUpdate performs a graceful switchover before deleting the primary pod.
+// It transitions the primary to standby (draining replication), promotes a standby,
+// updates pod labels, and then deletes the (now standby) pod for update.
+func (r *Reconciler) gracefulPrimaryUpdate(
+	ctx context.Context,
+	doltdb *doltv1alpha.DoltDB,
+	doltdbKey types.NamespacedName,
+	primaryPod *corev1.Pod,
+	updateRevision string,
+	logger logr.Logger,
+) error {
+	if !doltdb.Replication().Enabled || doltdb.Status.CurrentPrimaryPodIndex == nil {
+		return r.updatePod(ctx, doltdbKey, primaryPod, updateRevision, logger)
+	}
+
+	primaryIndex := *doltdb.Status.CurrentPrimaryPodIndex
+	primaryClient, err := doltsql.NewInternalClientWithPodIndex(ctx, doltdb, r.refResolver, primaryIndex)
+	if err != nil {
+		logger.Info("Unable to connect to primary for graceful switchover, falling back to direct update", "error", err)
+		return r.updatePod(ctx, doltdbKey, primaryPod, updateRevision, logger)
+	}
+	defer func() { _ = primaryClient.Close() }()
+
+	_, epoch, err := primaryClient.GetRoleAndEpoch(ctx)
+	if err != nil {
+		logger.Info("Unable to get role/epoch for graceful switchover, falling back to direct update", "error", err)
+		return r.updatePod(ctx, doltdbKey, primaryPod, updateRevision, logger)
+	}
+
+	standbyHosts, err := health.StandbyHostFQDNs(ctx, r, doltdb)
+	if err != nil {
+		logger.Info("Unable to resolve standby hosts, falling back to direct update", "error", err)
+		return r.updatePod(ctx, doltdbKey, primaryPod, updateRevision, logger)
+	}
+
+	nextEpoch := epoch + 1
+	logger.Info("Gracefully transitioning primary to standby before update (draining replication)")
+
+	// Use a longer timeout for TransitionToStandby since Dolt needs to verify
+	// that standbys are caught up across all databases, which can take time
+	// if the standby just restarted.
+	transitionCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	transitionOpts := doltsql.TransitionStandbyOpts{
+		Epoch:               nextEpoch,
+		MinCaughtUpStandbys: 1,
+		Hosts:               standbyHosts,
+	}
+	caughtUpIdx, err := primaryClient.TransitionToStandby(transitionCtx, transitionOpts)
+	if err != nil {
+		logger.Info(
+			"Graceful transition failed, falling back to direct update",
+			"error", err,
+			"hint", "standby may not have finished catching up after restart",
+		)
+		return r.updatePod(ctx, doltdbKey, primaryPod, updateRevision, logger)
+	}
+
+	// Promote the caught-up standby (with data safety check)
+	newPrimaryClient, err := doltsql.NewInternalClientWithPodIndex(ctx, doltdb, r.refResolver, caughtUpIdx)
+	if err != nil {
+		return fmt.Errorf("error connecting to new primary at index %d: %v", caughtUpIdx, err)
+	}
+	defer func() { _ = newPrimaryClient.Close() }()
+
+	if err := newPrimaryClient.AssumeRole(ctx, doltsql.AssumeRoleOpts{
+		Epoch: nextEpoch,
+		Role:  dolt.PrimaryRoleValue,
+	}); err != nil {
+		return fmt.Errorf("error promoting standby at index %d to primary: %v", caughtUpIdx, err)
+	}
+
+	// Update pod labels: old primary → standby, new primary → primary
+	if err := dolt.MarkRoleStandby(ctx, primaryPod, r.Client); err != nil {
+		return fmt.Errorf("error marking old primary pod '%s' as standby: %v", primaryPod.Name, err)
+	}
+	newPrimaryPod, _, err := health.IsDoltDBReplicaHealthy(ctx, r, doltdb, caughtUpIdx)
+	if err != nil {
+		return fmt.Errorf("error getting new primary pod at index %d: %v", caughtUpIdx, err)
+	}
+	if err := dolt.MarkRolePrimary(ctx, newPrimaryPod, r); err != nil {
+		return fmt.Errorf("error marking new primary pod '%s': %v", newPrimaryPod.Name, err)
+	}
+
+	logger.Info(
+		"Switchover complete before update, deleting old primary (now standby)",
+		"old-primary", primaryPod.Name,
+		"new-primary", newPrimaryPod.Name,
+		"epoch", nextEpoch,
+	)
+
+	return r.updatePod(ctx, doltdbKey, primaryPod, updateRevision, logger)
 }
 
 func (r *Reconciler) updatePod(ctx context.Context, doltdbKey types.NamespacedName, pod *corev1.Pod, updateRevision string,

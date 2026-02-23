@@ -89,16 +89,17 @@ func doltPodTemplate(metadata metav1.ObjectMeta, doltdb *doltv1alpha.DoltDB, con
 	return corev1.PodTemplateSpec{
 		ObjectMeta: objMeta,
 		Spec: corev1.PodSpec{
-			AutomountServiceAccountToken: ptr.To(false),
-			ServiceAccountName:           ptr.Deref(doltdb.Spec.ServiceAccountName, doltdb.Name),
-			Containers:                   doltContainers(doltdb),
-			ImagePullSecrets:             doltdb.Spec.ImagePullSecrets,
-			Volumes:                      doltVolumes(doltdb),
-			SecurityContext:              &doltdb.Spec.PodSecurityContext,
-			Affinity:                     doltdb.Spec.Affinity,
-			NodeSelector:                 doltdb.Spec.NodeSelector,
-			Tolerations:                  doltdb.Spec.Tolerations,
-			InitContainers:               doltInitContainers(doltdb),
+			AutomountServiceAccountToken:  ptr.To(false),
+			ServiceAccountName:            ptr.Deref(doltdb.Spec.ServiceAccountName, doltdb.Name),
+			TerminationGracePeriodSeconds: ptr.To(ptr.Deref(doltdb.Spec.TerminationGracePeriodSeconds, 60)),
+			Containers:                    doltContainers(doltdb),
+			ImagePullSecrets:              doltdb.Spec.ImagePullSecrets,
+			Volumes:                       doltVolumes(doltdb),
+			SecurityContext:               &doltdb.Spec.PodSecurityContext,
+			Affinity:                      doltdb.Spec.Affinity,
+			NodeSelector:                  doltdb.Spec.NodeSelector,
+			Tolerations:                   doltdb.Spec.Tolerations,
+			InitContainers:                doltInitContainers(doltdb),
 		},
 	}
 }

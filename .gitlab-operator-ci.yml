@@ -15,18 +15,17 @@ workflow:
     - if: $CI_PIPELINE_SOURCE == "parent_pipeline"
 
 unit-tests:
-  extends: .artifactory-token
   stage: test
   interruptible: true
   image: ${DOCKER_HUB_PROXY}/golang:${GOLANG_VERSION}-alpine
   before_script:
+    - !reference [.docker-login, before_script]
     - apk add --no-cache bash make build-base
   script:
     - make test
 
 integration-tests:
   stage: test
-  extends: .artifactory-token
   tags:
     - glaas-shared-k8s-dind
   retry: 2 # The DinD runners frequently run into errors.
@@ -42,9 +41,8 @@ integration-tests:
     DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
   interruptible: true
   before_script:
+    - !reference [.docker-login, before_script]
     - apk add --no-cache curl bash make git kubectl build-base
-    - mkdir -p "$HOME/.docker"
-    - echo $DOCKER_AUTH_CONFIG > $HOME/.docker/config.json
     - make install-go-ci
     - export PATH=${PATH}:/usr/local/go/bin
   script: 
@@ -52,9 +50,10 @@ integration-tests:
     - make integration-tests-ci
 
 lint:
-  extends: .artifactory-token
   stage: test
   image: ${DOCKER_HUB_PROXY}/golangci/golangci-lint:v${GOLANGCI_LINT_VERSION}
+  before_script:
+    - !reference [.docker-login, before_script]
   script:
     # Generate a code quality report for GitLab to show in MRs.
     - golangci-lint run --issues-exit-code 0 --out-format code-climate > gl-code-quality-report.json

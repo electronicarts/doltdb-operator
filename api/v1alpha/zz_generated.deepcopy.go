@@ -9,7 +9,7 @@ package v1alpha
 import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -345,6 +345,11 @@ func (in *DoltDBSpec) DeepCopyInto(out *DoltDBSpec) {
 		in, out := &in.Replication, &out.Replication
 		*out = new(Replication)
 		(*in).DeepCopyInto(*out)
+	}
+	if in.TerminationGracePeriodSeconds != nil {
+		in, out := &in.TerminationGracePeriodSeconds, &out.TerminationGracePeriodSeconds
+		*out = new(int64)
+		**out = **in
 	}
 	if in.TopologySpreadConstrains != nil {
 		in, out := &in.TopologySpreadConstrains, &out.TopologySpreadConstrains

@@ -23,7 +23,11 @@ import (
 // The configMapHash parameter is included in the pod template annotations to trigger pod restarts
 // when the ConfigMap content changes (e.g., when replicas are scaled up or down).
 // If UpdateStrategy is set to "Never", the configMapHash is not included in the pod template.
-func (b *Builder) BuildDoltStatefulSet(key types.NamespacedName, doltdb *doltv1alpha.DoltDB, configMapHash string) (*appsv1.StatefulSet, error) {
+func (b *Builder) BuildDoltStatefulSet(
+	key types.NamespacedName,
+	doltdb *doltv1alpha.DoltDB,
+	configMapHash string,
+) (*appsv1.StatefulSet, error) {
 	labels := NewLabelsBuilder().
 		WithDoltSelectorLabels(doltdb).
 		WithVersion(doltdb.Spec.EngineVersion).

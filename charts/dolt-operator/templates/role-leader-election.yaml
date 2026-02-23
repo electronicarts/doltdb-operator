@@ -1,8 +1,10 @@
+{{- if .Values.leaderElection.createRole }}
 # permissions to do leader election.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: {{ include "dolt-operator.fullname" . }}-leader-election
+  namespace: {{ .Values.leaderElection.namespace | default .Release.Namespace }}
   labels:
     {{- include "dolt-operator.labels" . | nindent 4 }}
 rules:
@@ -37,3 +39,4 @@ rules:
   verbs:
   - create
   - patch
+{{- end }}

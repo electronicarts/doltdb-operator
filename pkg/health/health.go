@@ -172,6 +172,28 @@ func IsServiceHealthy(ctx context.Context, client ctrlclient.Client, serviceKey 
 	return true, nil
 }
 
+// StandbyHostFQDNs returns the FQDNs of healthy standby pods for use in graceful transitions.
+func StandbyHostFQDNs(ctx context.Context, client ctrlclient.Client, doltdb *doltv1alpha.DoltDB) ([]string, error) {
+	healthyStandbys, err := HealthyDoltDBStandbys(ctx, client, doltdb)
+	if err != nil {
+		return nil, fmt.Errorf("error getting healthy standbys: %v", err)
+	}
+	if len(healthyStandbys) == 0 {
+		return nil, fmt.Errorf("no healthy standbys available")
+	}
+
+	hosts := make([]string, len(healthyStandbys))
+	for i, standby := range healthyStandbys {
+		podIndex, err := statefulset.PodIndex(standby.Name)
+		if err != nil {
+			return nil, fmt.Errorf("error getting index for Pod '%s': %v", standby.Name, err)
+		}
+		hosts[i] = statefulset.PodShortFQDNWithServiceAndNamespace(
+			doltdb.ObjectMeta, *podIndex, doltdb.InternalServiceKey().Name)
+	}
+	return hosts, nil
+}
+
 // sortPodList sorts the given PodList by pod name.
 func sortPodList(list corev1.PodList) {
 	sort.Slice(list.Items, func(i, j int) bool {
