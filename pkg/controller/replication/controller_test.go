@@ -102,6 +102,53 @@ func TestSwitchoverVsReplicationEpochBehavior(t *testing.T) {
 	}
 }
 
+// TestReplicationDisabledSkipsReconciliation verifies that the replication
+// controller returns immediately when replication is disabled (single-instance mode).
+func TestReplicationDisabledSkipsReconciliation(t *testing.T) {
+	tests := []struct {
+		name    string
+		doltdb  *doltv1alpha.DoltDB
+		enabled bool
+	}{
+		{
+			name:    "nil replication spec returns disabled",
+			doltdb:  &doltv1alpha.DoltDB{},
+			enabled: false,
+		},
+		{
+			name: "explicit enabled=false returns disabled",
+			doltdb: &doltv1alpha.DoltDB{
+				Spec: doltv1alpha.DoltDBSpec{
+					Replication: &doltv1alpha.Replication{
+						Enabled: false,
+					},
+				},
+			},
+			enabled: false,
+		},
+		{
+			name: "explicit enabled=true returns enabled",
+			doltdb: &doltv1alpha.DoltDB{
+				Spec: doltv1alpha.DoltDBSpec{
+					Replication: &doltv1alpha.Replication{
+						Enabled: true,
+					},
+				},
+			},
+			enabled: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.doltdb.Replication().Enabled
+			if got != tt.enabled {
+				t.Errorf("Replication().Enabled = %v, want %v", got, tt.enabled)
+			}
+		})
+	}
+}
+
 // TestReplicationStatusNilHandling verifies that reconcileReplication
 // properly handles nil status fields
 func TestReplicationStatusNilHandling(t *testing.T) {

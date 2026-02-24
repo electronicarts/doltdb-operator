@@ -1,9 +1,9 @@
 test-cluster-0.yaml:
   behavior:
     auto_gc_behavior:
-      enable: false
+      enable: true
   log_level: trace
   listener:
     host: 0.0.0.0
-    max_connections: 200
+    max_connections: 128
     port: 3306

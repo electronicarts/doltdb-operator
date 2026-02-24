@@ -1388,7 +1388,7 @@ spec:
                 description: Replicas specifies the number of replicas for the Dolt
                   cluster.
                 format: int32
-                minimum: 2
+                minimum: 1
                 type: integer
               replication:
                 description: |-

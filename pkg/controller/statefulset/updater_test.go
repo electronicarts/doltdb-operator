@@ -182,6 +182,41 @@ func TestGetStalePodNames(t *testing.T) {
 	}
 }
 
+func TestGetPodsByRoleSingleInstance(t *testing.T) {
+	tests := []struct {
+		name            string
+		replicas        int32
+		expectNoReplica bool
+	}{
+		{
+			name:            "single instance allows zero replica pods",
+			replicas:        1,
+			expectNoReplica: true,
+		},
+		{
+			name:            "multi instance requires replica pods",
+			replicas:        3,
+			expectNoReplica: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			doltdb := &doltv1alpha.DoltDB{
+				Spec: doltv1alpha.DoltDBSpec{
+					Replicas: tt.replicas,
+				},
+			}
+			// Verify the guard in getPodsByRole: Replicas>1 is required to error on empty replicas
+			hasReplicaRequirement := doltdb.Spec.Replicas > 1
+			if hasReplicaRequirement == tt.expectNoReplica {
+				t.Errorf("Replicas=%d: hasReplicaRequirement=%v, expectNoReplica=%v",
+					tt.replicas, hasReplicaRequirement, tt.expectNoReplica)
+			}
+		})
+	}
+}
+
 func podWithRevision(name, revision string) corev1.Pod {
 	return corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{

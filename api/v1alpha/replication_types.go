@@ -3,6 +3,8 @@
 package v1alpha
 
 import (
+	"fmt"
+
 	"k8s.io/utils/ptr"
 )
 
@@ -101,6 +103,16 @@ func (r ReplicationStatus) IsReplicationConfigured() bool {
 	// make sure at least one replica is configured. For example, this ensures that
 	// a switchover/failover operation will not start if no replica has been configured.
 	return anyReplicaConfigured
+}
+
+// ValidateReplicationSpec validates that the replication configuration is compatible with the replica count.
+func (d *DoltDB) ValidateReplicationSpec() error {
+	if d.Spec.Replicas == 1 && d.Replication().Enabled {
+		return fmt.Errorf(
+			"replication cannot be enabled with a single replica; set replicas > 1 or disable replication",
+		)
+	}
+	return nil
 }
 
 func (d *DoltDB) IsReplicationConfigured() bool {

@@ -9,6 +9,14 @@ import (
 	"k8s.io/utils/ptr"
 )
 
+// ServiceKey defines the key for the standalone Service
+func (d *DoltDB) ServiceKey() types.NamespacedName {
+	return types.NamespacedName{
+		Name:      d.Name,
+		Namespace: d.Namespace,
+	}
+}
+
 // InternalServiceKey defines the key for the internal headless Service
 func (d *DoltDB) InternalServiceKey() types.NamespacedName {
 	return types.NamespacedName{

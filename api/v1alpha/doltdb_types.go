@@ -49,7 +49,7 @@ type DoltDBSpec struct {
 	// Storage defines the volume configuration for the Dolt cluster.
 	Storage Storage `json:"storage"`
 	// Replicas specifies the number of replicas for the Dolt cluster.
-	// +kubebuilder:validation:Minimum=2
+	// +kubebuilder:validation:Minimum=1
 	// +optional
 	Replicas int32 `json:"replicas"`
 	// DEPRECATED: MaxConnections specifies the maximum number of connections for the Dolt cluster.

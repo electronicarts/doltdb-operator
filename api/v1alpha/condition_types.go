@@ -34,9 +34,10 @@ const (
 
 	ConditionReasonConnectionFailed string = "ConnectionFailed"
 
-	ConditionReasonCreated string = "Created"
-	ConditionReasonHealthy string = "Healthy"
-	ConditionReasonFailed  string = "Failed"
+	ConditionReasonCreated     string = "Created"
+	ConditionReasonHealthy     string = "Healthy"
+	ConditionReasonFailed      string = "Failed"
+	ConditionReasonInvalidSpec string = "InvalidSpec"
 )
 
 // SetCondition sets a status condition to DoltDB

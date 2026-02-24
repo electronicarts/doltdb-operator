@@ -76,6 +76,10 @@ type reconcileRequest struct {
 }
 
 func (r *ReplicationReconciler) Reconcile(ctx context.Context, doltdb *doltv1alpha.DoltDB) (ctrl.Result, error) {
+	if !doltdb.Replication().Enabled {
+		return ctrl.Result{}, nil
+	}
+
 	logger := log.FromContext(ctx).WithName("replication")
 	switchoverLogger := log.FromContext(ctx).WithName("switchover")
 

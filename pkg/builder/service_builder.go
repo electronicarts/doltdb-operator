@@ -57,6 +57,29 @@ func (b *Builder) BuildDoltInternalService(doltdb *doltv1alpha.DoltDB) (*v1.Serv
 	return svc, nil
 }
 
+// BuildDoltService creates a service for standalone mode when replication is disabled.
+func (b *Builder) BuildDoltService(doltdb *doltv1alpha.DoltDB) (*v1.Service, error) {
+	objMeta := NewMetadataBuilder(doltdb.ServiceKey()).
+		WithMetadata(&doltdb.ObjectMeta).Build()
+
+	labels := NewLabelsBuilder().WithDoltSelectorLabels(doltdb).Build()
+
+	svc := &v1.Service{
+		ObjectMeta: objMeta,
+		Spec: v1.ServiceSpec{
+			Ports:    doltServicePorts(doltdb),
+			Type:     v1.ServiceTypeClusterIP,
+			Selector: labels,
+		},
+	}
+
+	if err := controllerutil.SetControllerReference(doltdb, svc, b.scheme); err != nil {
+		return nil, fmt.Errorf("error setting controller reference to Service: %v", err)
+	}
+
+	return svc, nil
+}
+
 // BuildDoltPrimaryService creates a primary service for the Dolt cluster.
 func (b *Builder) BuildDoltPrimaryService(doltdb *doltv1alpha.DoltDB) (*v1.Service, error) {
 	objMeta := NewMetadataBuilder(doltdb.PrimaryServiceKey()).

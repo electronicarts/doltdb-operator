@@ -341,6 +341,108 @@ func TestBuildDoltPrimaryService(t *testing.T) {
 	}
 }
 
+func TestBuildDoltService(t *testing.T) {
+	builder := newTestBuilder()
+
+	tests := []struct {
+		name                string
+		doltdb              *doltv1alpha.DoltDB
+		expectedPortsCount  int
+		expectedServiceType corev1.ServiceType
+		expectedName        string
+	}{
+		{
+			name: "standalone service with default ports",
+			doltdb: &doltv1alpha.DoltDB{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "doltdb-standalone",
+					Namespace: "default",
+				},
+				Spec: doltv1alpha.DoltDBSpec{
+					Replicas: 1,
+					Server: doltv1alpha.Server{
+						Listener: doltv1alpha.Listener{
+							Port: 3306,
+						},
+					},
+				},
+			},
+			expectedPortsCount:  1,
+			expectedServiceType: corev1.ServiceTypeClusterIP,
+			expectedName:        "doltdb-standalone",
+		},
+		{
+			name: "standalone service with custom port",
+			doltdb: &doltv1alpha.DoltDB{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "doltdb-custom",
+					Namespace: "default",
+				},
+				Spec: doltv1alpha.DoltDBSpec{
+					Replicas: 1,
+					Server: doltv1alpha.Server{
+						Listener: doltv1alpha.Listener{
+							Port: 13306,
+						},
+					},
+				},
+			},
+			expectedPortsCount:  1,
+			expectedServiceType: corev1.ServiceTypeClusterIP,
+			expectedName:        "doltdb-custom",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, err := builder.BuildDoltService(tt.doltdb)
+			if err != nil {
+				t.Fatalf("unexpected error building standalone service: %v", err)
+			}
+
+			// Service name should match DoltDB name (no suffix)
+			if svc.Name != tt.expectedName {
+				t.Errorf("expected service name %s, got %s", tt.expectedName, svc.Name)
+			}
+
+			if len(svc.Spec.Ports) != tt.expectedPortsCount {
+				t.Errorf("expected %d ports, got %d", tt.expectedPortsCount, len(svc.Spec.Ports))
+			}
+
+			if svc.Spec.Type != tt.expectedServiceType {
+				t.Errorf("expected service type %s, got %s", tt.expectedServiceType, svc.Spec.Type)
+			}
+
+			// Verify MySQL port
+			hasMySQL := false
+			for _, port := range svc.Spec.Ports {
+				if port.Name == DoltMySQLPortName {
+					hasMySQL = true
+					if port.Port != tt.doltdb.Spec.Server.Listener.Port {
+						t.Errorf("expected MySQL port %d, got %d", tt.doltdb.Spec.Server.Listener.Port, port.Port)
+					}
+				}
+			}
+			if !hasMySQL {
+				t.Errorf("service missing MySQL port with name %s", DoltMySQLPortName)
+			}
+
+			// Verify selector uses app labels only (no role-specific labels)
+			expectedLabels := NewLabelsBuilder().WithDoltSelectorLabels(tt.doltdb).Build()
+			for k, v := range expectedLabels {
+				if svc.Spec.Selector[k] != v {
+					t.Errorf("expected selector label %s=%s, got %s", k, v, svc.Spec.Selector[k])
+				}
+			}
+
+			// Ensure no role labels in selector
+			if _, hasRole := svc.Spec.Selector["k8s.dolthub.com/cluster-role"]; hasRole {
+				t.Error("standalone service selector should not contain role label")
+			}
+		})
+	}
+}
+
 func TestBuildDoltReaderService(t *testing.T) {
 	builder := newTestBuilder()
 

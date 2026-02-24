@@ -19,7 +19,7 @@ const (
 type Config struct {
 	Behavior Behavior `yaml:"behavior"`
 	LogLevel string   `yaml:"log_level"`
-	Cluster  Cluster  `yaml:"cluster"`
+	Cluster  *Cluster `yaml:"cluster,omitempty"`
 	Listener Listener `yaml:"listener"`
 	Metrics  Metrics  `yaml:"metrics,omitempty"`
 }

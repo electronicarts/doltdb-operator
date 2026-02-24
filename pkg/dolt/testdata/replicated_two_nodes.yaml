@@ -1,0 +1,34 @@
+test-cluster-0.yaml:
+  behavior:
+    auto_gc_behavior:
+      enable: true
+  log_level: trace
+  cluster:
+    bootstrap_epoch: 1
+    bootstrap_role: primary
+    standby_remotes:
+      - name: test-cluster-1
+        remote_url_template: http://test-cluster-1.test-cluster-internal.default:50051/{database}
+    remotesapi:
+      port: 50051
+  listener:
+    host: 0.0.0.0
+    max_connections: 128
+    port: 3306
+test-cluster-1.yaml:
+  behavior:
+    auto_gc_behavior:
+      enable: true
+  log_level: trace
+  cluster:
+    bootstrap_epoch: 1
+    bootstrap_role: standby
+    standby_remotes:
+      - name: test-cluster-0
+        remote_url_template: http://test-cluster-0.test-cluster-internal.default:50051/{database}
+    remotesapi:
+      port: 50051
+  listener:
+    host: 0.0.0.0
+    max_connections: 128
+    port: 3306

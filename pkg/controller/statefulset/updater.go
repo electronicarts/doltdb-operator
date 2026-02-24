@@ -381,7 +381,7 @@ func (r *Reconciler) getPodsByRole(ctx context.Context, doltdb *doltv1alpha.Dolt
 			replicas = append(replicas, pod)
 		}
 	}
-	if len(replicas) == 0 {
+	if len(replicas) == 0 && doltdb.Spec.Replicas > 1 {
 		return ctrl.Result{}, errors.New("no replica Pods found")
 	}
 	if primary == nil {

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
@@ -29,6 +30,9 @@ func TestGenerateConfigMapData(t *testing.T) {
 				},
 				Spec: doltv1alpha.DoltDBSpec{
 					Replicas: 2,
+					Replication: &doltv1alpha.Replication{
+						Enabled: true,
+					},
 					Server: doltv1alpha.Server{
 						Behavior: doltv1alpha.Behavior{
 							AutoGCBehavior: doltv1alpha.AutoGCBehavior{
@@ -80,6 +84,68 @@ func TestGenerateConfigMapData(t *testing.T) {
 			expectedError: false,
 		},
 		{
+			name: "single instance without replication",
+			doltdb: &doltv1alpha.DoltDB{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-cluster",
+					Namespace: "default",
+				},
+				Spec: doltv1alpha.DoltDBSpec{
+					Replicas: 1,
+					Server: doltv1alpha.Server{
+						Behavior: doltv1alpha.Behavior{
+							AutoGCBehavior: doltv1alpha.AutoGCBehavior{
+								Enable: true,
+							},
+						},
+						Listener: doltv1alpha.Listener{
+							Host:           "0.0.0.0",
+							Port:           3306,
+							MaxConnections: 128,
+						},
+						LogLevel: "trace",
+					},
+				},
+			},
+			expectedData:  readTestData(t, "single_instance.yaml"),
+			expectedError: false,
+		},
+		{
+			name: "replicated two nodes with cluster section",
+			doltdb: &doltv1alpha.DoltDB{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-cluster",
+					Namespace: "default",
+				},
+				Spec: doltv1alpha.DoltDBSpec{
+					Replicas: 2,
+					Replication: &doltv1alpha.Replication{
+						Enabled: true,
+					},
+					Server: doltv1alpha.Server{
+						Behavior: doltv1alpha.Behavior{
+							AutoGCBehavior: doltv1alpha.AutoGCBehavior{
+								Enable: true,
+							},
+						},
+						Listener: doltv1alpha.Listener{
+							Host:           "0.0.0.0",
+							Port:           3306,
+							MaxConnections: 128,
+						},
+						Cluster: doltv1alpha.Cluster{
+							RemotesAPI: doltv1alpha.RemotesAPI{
+								Port: 50051,
+							},
+						},
+						LogLevel: "trace",
+					},
+				},
+			},
+			expectedData:  readTestData(t, "replicated_two_nodes.yaml"),
+			expectedError: false,
+		},
+		{
 			name: "with maybe null server config values",
 			doltdb: &doltv1alpha.DoltDB{
 				ObjectMeta: metav1.ObjectMeta{
@@ -88,6 +154,9 @@ func TestGenerateConfigMapData(t *testing.T) {
 				},
 				Spec: doltv1alpha.DoltDBSpec{
 					Replicas: 2,
+					Replication: &doltv1alpha.Replication{
+						Enabled: true,
+					},
 					Server: doltv1alpha.Server{
 						Listener: doltv1alpha.Listener{
 							Host:           "0.0.0.0",
@@ -118,6 +187,9 @@ func TestGenerateConfigMapData(t *testing.T) {
 				},
 				Spec: doltv1alpha.DoltDBSpec{
 					Replicas: 2,
+					Replication: &doltv1alpha.Replication{
+						Enabled: true,
+					},
 					Server: doltv1alpha.Server{
 						Listener: doltv1alpha.Listener{
 							Host:           "0.0.0.0",
@@ -174,6 +246,129 @@ func TestGenerateConfigMapData(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestSingleInstanceConfigNoClusterSection(t *testing.T) {
+	doltdb := &doltv1alpha.DoltDB{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-cluster",
+			Namespace: "default",
+		},
+		Spec: doltv1alpha.DoltDBSpec{
+			Replicas: 1,
+			Server: doltv1alpha.Server{
+				Listener: doltv1alpha.Listener{
+					Host: "0.0.0.0",
+					Port: 3306,
+				},
+				LogLevel: "trace",
+			},
+		},
+	}
+
+	data, err := GenerateConfigMapData(doltdb)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(data) != 1 {
+		t.Fatalf("expected 1 config key, got %d", len(data))
+	}
+
+	configYAML, ok := data["test-cluster-0.yaml"]
+	if !ok {
+		t.Fatal("expected config key 'test-cluster-0.yaml' not found")
+	}
+
+	if strings.Contains(configYAML, "cluster:") {
+		t.Error("single instance config should not contain 'cluster:' section")
+	}
+	if !strings.Contains(configYAML, "listener:") {
+		t.Error("config should contain 'listener:' section")
+	}
+	if !strings.Contains(configYAML, "behavior:") {
+		t.Error("config should contain 'behavior:' section")
+	}
+}
+
+func TestReplicatedInstanceConfigHasClusterSection(t *testing.T) {
+	doltdb := &doltv1alpha.DoltDB{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-cluster",
+			Namespace: "default",
+		},
+		Spec: doltv1alpha.DoltDBSpec{
+			Replicas: 2,
+			Replication: &doltv1alpha.Replication{
+				Enabled: true,
+			},
+			Server: doltv1alpha.Server{
+				Listener: doltv1alpha.Listener{
+					Host: "0.0.0.0",
+					Port: 3306,
+				},
+				Cluster: doltv1alpha.Cluster{
+					RemotesAPI: doltv1alpha.RemotesAPI{
+						Port: 50051,
+					},
+				},
+				LogLevel: "trace",
+			},
+		},
+	}
+
+	data, err := GenerateConfigMapData(doltdb)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(data) != 2 {
+		t.Fatalf("expected 2 config keys, got %d", len(data))
+	}
+
+	for key, configYAML := range data {
+		if !strings.Contains(configYAML, "cluster:") {
+			t.Errorf("replicated config %s should contain 'cluster:' section", key)
+		}
+		if !strings.Contains(configYAML, "standby_remotes:") {
+			t.Errorf("replicated config %s should contain 'standby_remotes:' section", key)
+		}
+	}
+}
+
+func TestConfigClusterOmitEmpty(t *testing.T) {
+	// When Cluster is nil, YAML output should not contain "cluster:"
+	config := Config{
+		Behavior: Behavior{AutoGCBehavior: AutoGCBehavior{Enable: false}},
+		LogLevel: "trace",
+		Listener: Listener{Host: "0.0.0.0", Port: 3306, MaxConnections: 128},
+	}
+	yamlData, err := yaml.Marshal(config)
+	if err != nil {
+		t.Fatalf("unexpected error marshaling config: %v", err)
+	}
+	if strings.Contains(string(yamlData), "cluster:") {
+		t.Error("config with nil Cluster should not contain 'cluster:' in YAML output")
+	}
+
+	// When Cluster is set, YAML output should contain "cluster:"
+	configWithCluster := Config{
+		Behavior: Behavior{AutoGCBehavior: AutoGCBehavior{Enable: false}},
+		LogLevel: "trace",
+		Cluster: &Cluster{
+			BootstrapEpoch: 1,
+			BootstrapRole:  "primary",
+			RemotesAPI:     RemotesAPI{Port: 50051},
+		},
+		Listener: Listener{Host: "0.0.0.0", Port: 3306, MaxConnections: 128},
+	}
+	yamlDataWithCluster, err := yaml.Marshal(configWithCluster)
+	if err != nil {
+		t.Fatalf("unexpected error marshaling config: %v", err)
+	}
+	if !strings.Contains(string(yamlDataWithCluster), "cluster:") {
+		t.Error("config with Cluster set should contain 'cluster:' in YAML output")
 	}
 }
 

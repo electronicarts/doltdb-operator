@@ -30,19 +30,22 @@ func GenerateConfigMapData(doltdb *doltv1alpha.DoltDB) (map[string]string, error
 				},
 			},
 			LogLevel: doltdb.Spec.Server.LogLevel,
-			Cluster: Cluster{
+			Listener: Listener{
+				Host:           doltdb.Spec.Server.Listener.Host,
+				Port:           doltdb.Spec.Server.Listener.Port,
+				MaxConnections: doltdb.Spec.Server.Listener.MaxConnections,
+			},
+		}
+
+		if doltdb.Replication().Enabled {
+			config.Cluster = &Cluster{
 				StandbyRemotes: generateStandbyRemotes(i, doltdb, remotesAPIPort),
 				BootstrapEpoch: 1,
 				BootstrapRole:  getBootstrapRole(i),
 				RemotesAPI: RemotesAPI{
 					Port: remotesAPIPort,
 				},
-			},
-			Listener: Listener{
-				Host:           doltdb.Spec.Server.Listener.Host,
-				Port:           doltdb.Spec.Server.Listener.Port,
-				MaxConnections: doltdb.Spec.Server.Listener.MaxConnections,
-			},
+			}
 		}
 
 		if doltdb.Spec.Server.Metrics != nil && doltdb.Spec.Server.Metrics.Enabled {

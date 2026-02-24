@@ -102,15 +102,15 @@ func NewClientWithDoltDB(ctx context.Context, doltdb *doltv1alpha.DoltDB, refRes
 		return nil, fmt.Errorf("error reading root username secret: %v", err)
 	}
 
+	serviceName := doltdb.PrimaryServiceKey().Name
+	if !doltdb.Replication().Enabled {
+		serviceName = doltdb.ServiceKey().Name
+	}
+
 	opts := []Opt{
 		WithUsername(username),
 		WithPassword(password),
-		WitHost(func() string {
-			return statefulset.ServiceFQDNWithService(
-				doltdb.ObjectMeta,
-				doltdb.PrimaryServiceKey().Name,
-			)
-		}()),
+		WitHost(statefulset.ServiceFQDNWithService(doltdb.ObjectMeta, serviceName)),
 		WithPort(doltdb.Spec.Server.Listener.Port),
 	}
 	opts = append(opts, clientOpts...)
