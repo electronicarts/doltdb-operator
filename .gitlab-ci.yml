@@ -84,3 +84,20 @@ chart:deploy:manual:
   extends:
     - .chart-release
     - .deploy:manual
+
+# CRD chart - manual deploy for non-protected branches
+chart-crds:deploy:manual:
+  extends:
+    - .chart-release
+    - .deploy:manual
+  variables:
+    SERVICE_NAME: dolt-operator-crds
+
+# CRD chart - automatic deploy for protected branches
+chart-crds:deploy:
+  extends:
+    - .chart-release
+  variables:
+    SERVICE_NAME: dolt-operator-crds
+  rules:
+    - if: $CI_COMMIT_REF_PROTECTED == "true" && ($CI_COMMIT_BRANCH || $CI_COMMIT_TAG)

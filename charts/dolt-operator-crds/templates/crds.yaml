@@ -1,0 +1,9 @@
+{{- range $path, $_ := .Files.Glob "generated/crd/*" }}
+{{- $crd := $.Files.Get $path | fromYaml }}
+{{- $_ := set $crd.metadata "labels" (dict "app.kubernetes.io/name" "dolt-operator-crds") }}
+{{- if $.Values.keepCrds }}
+{{- $_ := set $crd.metadata "annotations" (dict "helm.sh/resource-policy" "keep") }}
+{{- end }}
+{{ $crd | toYaml }}
+---
+{{- end }}

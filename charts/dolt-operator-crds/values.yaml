@@ -1,0 +1,2 @@
+# -- Whether to add helm.sh/resource-policy: keep to prevent CRD deletion on uninstall. Default: true.
+keepCrds: true
