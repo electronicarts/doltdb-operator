@@ -9,7 +9,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/go-logr/logr"
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
 	"github.com/electronicarts/doltdb-operator/pkg/builder"
 	"github.com/electronicarts/doltdb-operator/pkg/dolt"
@@ -17,6 +16,7 @@ import (
 	"github.com/electronicarts/doltdb-operator/pkg/health"
 	podpkg "github.com/electronicarts/doltdb-operator/pkg/pod"
 	"github.com/electronicarts/doltdb-operator/pkg/wait"
+	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"

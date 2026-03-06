@@ -1,0 +1,2 @@
+{{- /* Merge the Kubebuilder-generated ClusterRole with our chart metadata. */}}
+{{- merge (include "doltdb-operator.clusterRoleOverlay" . | fromYaml) (.Files.Get "generated/rbac/role.yaml" | fromYaml) | toYaml }}

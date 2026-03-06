@@ -1,4 +1,4 @@
-# dolt-operator
+# doltdb-operator
 
 Run and operate DoltDB Cluster in a cloud native way. Declaratively manage your Dolt Cluster using Kubernetes CRDs rather than imperative commands.
 
@@ -64,14 +64,14 @@ make lint-fix
 ### Build and Push Image
 
 ```sh
-make docker-build docker-push IMG=<registry>/dolt-operator:tag
+make docker-build docker-push IMG=<registry>/doltdb-operator:tag
 ```
 
 ### Install CRDs and Deploy
 
 ```sh
 make install
-make deploy IMG=<registry>/dolt-operator:tag
+make deploy IMG=<registry>/doltdb-operator:tag
 ```
 
 > **NOTE**: If you encounter RBAC errors, you may need cluster-admin privileges.
@@ -95,13 +95,13 @@ make undeploy
 Build a consolidated installer YAML:
 
 ```sh
-make build-installer IMG=<registry>/dolt-operator:tag
+make build-installer IMG=<registry>/doltdb-operator:tag
 ```
 
 This generates `dist/install.yaml` which users can apply directly:
 
 ```sh
-kubectl apply -f https://raw.githubusercontent.com/<org>/dolt-operator/<tag>/dist/install.yaml
+kubectl apply -f https://raw.githubusercontent.com/<org>/doltdb-operator/<tag>/dist/install.yaml
 ```
 
 ## Contributing

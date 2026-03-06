@@ -16,7 +16,7 @@ local_resource('Install CRDs', cmd='make install', deps=['Makefile', 'make/*', '
 
 doltdbVersion = os.getenv("DOLTDB_ENGINE_VERSION")
 print("DOLTDB_ENGINE_VERSION: " + doltdbVersion)
-docker_build('localhost:5000/dolt-operator-test-runner', '.', dockerfile="Dockerfile.dev", build_args={
+docker_build('localhost:5000/doltdb-operator-test-runner', '.', dockerfile="Dockerfile.dev", build_args={
   'DOLTDB_ENGINE_VERSION': doltdbVersion
 })
 
@@ -24,15 +24,15 @@ k8s_yaml(['hack/manifests/e2e/cluster-role.yaml', 'hack/manifests/storageclass.y
 k8s_resource(
   objects=[
     'standard-resize:storageclass',
-    'dolt-operator-test-runner-sa', 
-    'dolt-operator-test-runner-clusterrole', 
-    'dolt-operator-test-runner-clusterrolebinding'
+    'doltdb-operator-test-runner-sa', 
+    'doltdb-operator-test-runner-clusterrole', 
+    'doltdb-operator-test-runner-clusterrolebinding'
   ],
   new_name='Test Runner Config'
 )
 
 k8s_yaml('hack/manifests/e2e/test-runner.yaml')
 k8s_resource(
-  workload='dolt-operator-test-runner-job',
+  workload='doltdb-operator-test-runner-job',
   new_name='Test Runner Execution'
 )

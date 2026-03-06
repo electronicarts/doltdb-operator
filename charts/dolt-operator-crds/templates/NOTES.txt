@@ -1,4 +1,0 @@
-dolt-operator CRDs have been successfully installed!
-
-To complete the installation, install the dolt-operator chart with:
-  installCrds: false

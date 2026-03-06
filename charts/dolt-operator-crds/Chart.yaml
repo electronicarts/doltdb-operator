@@ -1,5 +1,0 @@
-apiVersion: v2
-name: dolt-operator-crds
-description: CRDs for the dolt-operator Helm chart
-type: application
-version: 0.2.0

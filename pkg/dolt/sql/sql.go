@@ -9,10 +9,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-sql-driver/mysql"
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
 	"github.com/electronicarts/doltdb-operator/pkg/refresolver"
 	"github.com/electronicarts/doltdb-operator/pkg/statefulset"
+	"github.com/go-sql-driver/mysql"
 )
 
 type Opts struct {

@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-logr/logr"
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
+	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"

@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: dolt-operator-test-runner-job
+  name: doltdb-operator-test-runner-job
 spec:
   parallelism: 1
   activeDeadlineSeconds: 1600
@@ -9,10 +9,10 @@ spec:
   template:
     spec:
       automountServiceAccountToken: true
-      serviceAccountName: dolt-operator-test-runner-sa
+      serviceAccountName: doltdb-operator-test-runner-sa
       containers:
-        - name: dolt-operator-test-runner
-          image: localhost:5000/dolt-operator-test-runner
+        - name: doltdb-operator-test-runner
+          image: localhost:5000/doltdb-operator-test-runner
           resources:
             limits:
               memory: 2Gi

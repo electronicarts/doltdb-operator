@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
 	"github.com/electronicarts/doltdb-operator/pkg/conditions"
 	sqlClient "github.com/electronicarts/doltdb-operator/pkg/dolt/sql"
 	"github.com/electronicarts/doltdb-operator/pkg/health"
 	"github.com/electronicarts/doltdb-operator/pkg/refresolver"
+	"github.com/hashicorp/go-multierror"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	clientpkg "sigs.k8s.io/controller-runtime/pkg/client"

@@ -7,9 +7,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	cron "github.com/robfig/cron/v3"
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
 	"github.com/electronicarts/doltdb-operator/pkg/builder"
+	cron "github.com/robfig/cron/v3"
 	"gopkg.in/yaml.v3"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"

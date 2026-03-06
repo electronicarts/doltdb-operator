@@ -1,4 +1,4 @@
-# dolt-operator
+# doltdb-operator
 
 ![Version: 0.2.0](https://img.shields.io/badge/Version-0.2.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square)
 
@@ -17,7 +17,7 @@ A Helm chart for Kubernetes deployment of Dolt operator
 | image.tag | string | `"%%image_tag%%"` |  |
 | imagePullSecrets | list | `[]` |  |
 | installClusterRole | bool | `true` | A boolean flag indicating whether ClusterRole and ClusterRoleBinding should be installed. Set to false for secondary installations. Default: true. |
-| installCrds | bool | `false` | A boolean flag indicating whether CRDs should be installed. Set to false when using the standalone dolt-operator-crds chart. Default: false. |
+| installCrds | bool | `false` | A boolean flag indicating whether CRDs should be installed. Set to false when using the standalone doltdb-operator-crds chart. Default: false. |
 | keepCrds | bool | `true` | A boolean flag indicating whether CRDS should be kept or deleted when uninstalled with helm. Default: true. |
 | leaderElection.createRole | bool | `true` | Whether to create the leader election Role. Set to false for secondary installations. |
 | leaderElection.existingRole | string | `""` | Name of existing leader election role to use. If not set, defaults to <fullname>-leader-election. |

@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"time"
 
-	cron "github.com/robfig/cron/v3"
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
 	"github.com/electronicarts/doltdb-operator/pkg/conditions"
 	"github.com/electronicarts/doltdb-operator/pkg/patch"
+	cron "github.com/robfig/cron/v3"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"

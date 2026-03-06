@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hashicorp/go-multierror"
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
 	"github.com/electronicarts/doltdb-operator/pkg/builder"
 	"github.com/electronicarts/doltdb-operator/pkg/conditions"
@@ -14,6 +13,7 @@ import (
 	"github.com/electronicarts/doltdb-operator/pkg/controller/volumesnapshot"
 	"github.com/electronicarts/doltdb-operator/pkg/patch"
 	"github.com/electronicarts/doltdb-operator/pkg/refresolver"
+	"github.com/hashicorp/go-multierror"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"

@@ -1,5 +1,5 @@
 {{- if .Values.installCrds }}
-{{- $crdOverlay := include "dolt-operator.crdOverlay" . | fromYaml }}
+{{- $crdOverlay := include "doltdb-operator.crdOverlay" . | fromYaml }}
 
 {{- range $path, $_ := .Files.Glob "generated/crd/*" }}
 

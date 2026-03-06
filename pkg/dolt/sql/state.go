@@ -6,8 +6,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hashicorp/go-multierror"
 	"github.com/electronicarts/doltdb-operator/pkg/dolt"
+	"github.com/hashicorp/go-multierror"
 )
 
 func (c *Client) GetVersion(ctx context.Context) (string, error) {

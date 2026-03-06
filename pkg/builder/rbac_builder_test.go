@@ -5,8 +5,8 @@ package builder
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
+	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )

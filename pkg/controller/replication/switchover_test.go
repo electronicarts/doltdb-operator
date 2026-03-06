@@ -5,8 +5,8 @@ package replication
 import (
 	"testing"
 
-	"github.com/go-logr/logr"
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
+	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 )
