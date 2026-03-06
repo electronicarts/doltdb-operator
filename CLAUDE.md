@@ -1,4 +1,4 @@
-# AGENTS.md - Project Instructions for AI Assistants
+# CLAUDE.md - Project Instructions for AI Assistants
 
 A Kubernetes operator for managing DoltDB clusters, built with [kubebuilder](https://book.kubebuilder.io/).
 Module: `github.com/electronicarts/doltdb-operator`

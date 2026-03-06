@@ -3,9 +3,9 @@
 replicas: 1
 
 image:
-  repository: "%%image_repository%%"
+  repository: ghcr.io/electronicarts/doltdb-operator
   pullPolicy: IfNotPresent
-  tag: "%%image_tag%%"
+  tag: ""  # Defaults to chart appVersion
 
 containerArgs:
   - --leader-elect
