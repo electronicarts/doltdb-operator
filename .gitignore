@@ -25,5 +25,19 @@ go.work
 *.swp
 *.swo
 *~
+
+# OS files
+.DS_Store
+
+# Environment and credentials
+.env
+.env.*
+!.env.example
+credentials.json
+service-account.json
+*.pem
+*.key
+
+# Development
 tilt_git/
 vendor
