@@ -39,8 +39,8 @@ test: ## Run tests.
 .PHONY: manifests
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	@# Clean the generated directories.
-	rm -rf charts/dolt-operator/generated/*
-	rm -rf charts/dolt-operator-crds/generated/crd/*
+	rm -rf charts/doltdb-operator/generated/*
+	rm -rf charts/doltdb-operator-crds/generated/crd/*
 
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." \
 		output:crd:artifacts:config=config/crd/bases \
@@ -48,12 +48,12 @@ manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and Cust
 		output:webhook:artifacts:config=config/webhook
 
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." \
-		output:crd:artifacts:config=charts/dolt-operator/generated/crd \
-		output:rbac:artifacts:config=charts/dolt-operator/generated/rbac \
-		output:webhook:artifacts:config=charts/dolt-operator/generated/webhook
+		output:crd:artifacts:config=charts/doltdb-operator/generated/crd \
+		output:rbac:artifacts:config=charts/doltdb-operator/generated/rbac \
+		output:webhook:artifacts:config=charts/doltdb-operator/generated/webhook
 
 	@# Copy CRDs to the standalone CRD chart.
-	cp charts/dolt-operator/generated/crd/* charts/dolt-operator-crds/generated/crd/
+	cp charts/doltdb-operator/generated/crd/* charts/doltdb-operator-crds/generated/crd/
 
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.

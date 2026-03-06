@@ -1,14 +1,14 @@
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: {{ include "dolt-operator.fullname" . }}
+  name: {{ include "doltdb-operator.fullname" . }}
   labels:
-  {{- include "dolt-operator.labels" . | nindent 4 }}
+  {{- include "doltdb-operator.labels" . | nindent 4 }}
 subjects:
   - kind: ServiceAccount
-    name: {{ include "dolt-operator.fullname" . }}
+    name: {{ include "doltdb-operator.fullname" . }}
     namespace: {{ .Release.Namespace }}
 roleRef:
   kind: ClusterRole
-  name: {{ include "dolt-operator.fullname" . }}
+  name: {{ include "doltdb-operator.fullname" . }}
   apiGroup: rbac.authorization.k8s.io

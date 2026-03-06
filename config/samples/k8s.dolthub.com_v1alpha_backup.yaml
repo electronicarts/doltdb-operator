@@ -3,7 +3,7 @@ kind: Backup
 metadata:
   name: backup-sample
   labels:
-    app.kubernetes.io/name: dolt-operator
+    app.kubernetes.io/name: doltdb-operator
     app.kubernetes.io/managed-by: kustomize
 spec:
   doltDBRef:

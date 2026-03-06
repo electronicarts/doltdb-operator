@@ -9,7 +9,7 @@ local_resource('Build manifests', cmd='make manifests', deps=['Makefile', 'make/
 local_resource('Generate CRDs', cmd='make generate', deps=['Makefile', 'make/*', 'api/*'])
 local_resource('Install CRDs', cmd='make install', deps=['Makefile', 'make/*', 'api/*'])
 
-docker_build('localhost:5000/dolt-operator:local', '.', dockerfile="Dockerfile")
+docker_build('localhost:5000/doltdb-operator:local', '.', dockerfile="Dockerfile")
 
 k8s_yaml([
   'hack/manifests/storageclass.yaml', 

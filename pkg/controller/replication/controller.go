@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-logr/logr"
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
 	"github.com/electronicarts/doltdb-operator/pkg/builder"
 	"github.com/electronicarts/doltdb-operator/pkg/controller/configmap"
@@ -15,6 +14,7 @@ import (
 	"github.com/electronicarts/doltdb-operator/pkg/health"
 	"github.com/electronicarts/doltdb-operator/pkg/refresolver"
 	"github.com/electronicarts/doltdb-operator/pkg/statefulset"
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"

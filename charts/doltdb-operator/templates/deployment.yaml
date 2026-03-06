@@ -1,26 +1,26 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "dolt-operator.fullname" . }}
+  name: {{ include "doltdb-operator.fullname" . }}
   labels:
-    {{- include "dolt-operator.labels" . | nindent 4 }}
+    {{- include "doltdb-operator.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicas }}
   selector:
     matchLabels:
-      {{- include "dolt-operator.selectorLabels" . | nindent 6 }}
+      {{- include "doltdb-operator.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       annotations:
-        {{- include "dolt-operator.deploymentAnnotations" . | nindent 8 }}
+        {{- include "doltdb-operator.deploymentAnnotations" . | nindent 8 }}
       labels:
-        {{- include "dolt-operator.selectorLabels" . | nindent 8 }}
+        {{- include "doltdb-operator.selectorLabels" . | nindent 8 }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "dolt-operator.serviceAccountName" . }}
+      serviceAccountName: {{ include "doltdb-operator.serviceAccountName" . }}
       terminationGracePeriodSeconds: 10
       containers:
         - name: {{ .Chart.Name }}

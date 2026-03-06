@@ -2,17 +2,17 @@
 # This file is used to track the info used to scaffold your project
 # and allow the plugins properly work.
 # More info: https://book.kubebuilder.io/reference/project-config.html
-domain: REDACTED
+domain: github.com
 layout:
 - go.kubebuilder.io/v4
-projectName: dolt-operator
+projectName: doltdb-operator
 repo: github.com/electronicarts/doltdb-operator
 resources:
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: REDACTED
+  domain: github.com
   group: k8s.dolthub.com
   kind: DoltDB
   path: github.com/electronicarts/doltdb-operator/api/v1alpha
@@ -21,7 +21,7 @@ resources:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: REDACTED
+  domain: github.com
   group: k8s.dolthub.com
   kind: Database
   path: github.com/electronicarts/doltdb-operator/api/v1alpha
@@ -30,7 +30,7 @@ resources:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: REDACTED
+  domain: github.com
   group: k8s.dolthub.com
   kind: Snapshot
   path: github.com/electronicarts/doltdb-operator/api/v1alpha
@@ -39,7 +39,7 @@ resources:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: REDACTED
+  domain: github.com
   group: k8s.dolthub.com
   kind: User
   path: github.com/electronicarts/doltdb-operator/api/v1alpha
@@ -48,7 +48,7 @@ resources:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: REDACTED
+  domain: github.com
   group: k8s.dolthub.com
   kind: Grant
   path: github.com/electronicarts/doltdb-operator/api/v1alpha

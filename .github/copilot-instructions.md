@@ -1,4 +1,4 @@
-# Copilot Instructions for dolt-operator
+# Copilot Instructions for doltdb-operator
 
 A Kubernetes operator for managing DoltDB clusters, built with kubebuilder.
 

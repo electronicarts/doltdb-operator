@@ -1,5 +1,5 @@
 apiVersion: v2
-name: dolt-operator
+name: doltdb-operator
 description: A Helm chart for Kubernetes deployment of Dolt operator
 type: application
 version: 0.2.0

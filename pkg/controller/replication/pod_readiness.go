@@ -9,13 +9,13 @@ import (
 
 	"errors"
 
-	"github.com/go-logr/logr"
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
 	"github.com/electronicarts/doltdb-operator/pkg/builder"
 	"github.com/electronicarts/doltdb-operator/pkg/conditions"
 	"github.com/electronicarts/doltdb-operator/pkg/health"
 	"github.com/electronicarts/doltdb-operator/pkg/refresolver"
 	"github.com/electronicarts/doltdb-operator/pkg/statefulset"
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"

@@ -1,4 +1,4 @@
-# Default values for dolt-operator.
+# Default values for doltdb-operator.
 
 replicas: 1
 
@@ -67,7 +67,7 @@ resources: {}
   #   memory: 128Mi
 
 # -- A boolean flag indicating whether CRDs should be installed.
-# Set to false when using the standalone dolt-operator-crds chart. Default: false.
+# Set to false when using the standalone doltdb-operator-crds chart. Default: false.
 installCrds: false
 
 # -- A boolean flag indicating whether CRDS should be kept or deleted when uninstalled with helm. Default: true.

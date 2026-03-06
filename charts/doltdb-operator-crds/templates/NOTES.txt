@@ -1,0 +1,4 @@
+doltdb-operator CRDs have been successfully installed!
+
+To complete the installation, install the doltdb-operator chart with:
+  installCrds: false

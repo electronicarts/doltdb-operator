@@ -3,7 +3,7 @@ kind: Namespace
 metadata:
   labels:
     control-plane: controller-manager
-    app.kubernetes.io/name: dolt-operator
+    app.kubernetes.io/name: doltdb-operator
     app.kubernetes.io/managed-by: kustomize
   name: system
 ---
@@ -14,7 +14,7 @@ metadata:
   namespace: system
   labels:
     control-plane: controller-manager
-    app.kubernetes.io/name: dolt-operator
+    app.kubernetes.io/name: doltdb-operator
     app.kubernetes.io/managed-by: kustomize
 spec:
   selector:
@@ -38,7 +38,7 @@ spec:
           - --leader-elect
           - --metrics-bind-address=:8080
           - --metrics-secure=false
-        image: localhost:5000/dolt-operator:local
+        image: localhost:5000/doltdb-operator:local
         name: manager
         securityContext:
           allowPrivilegeEscalation: false
