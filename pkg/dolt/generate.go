@@ -7,7 +7,7 @@ import (
 
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
 	"github.com/electronicarts/doltdb-operator/pkg/statefulset"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 func getIntValueOrDefault(value, defaultValue int32) int32 {

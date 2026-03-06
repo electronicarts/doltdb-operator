@@ -6,7 +6,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hashicorp/go-multierror"
+	"errors"
+
 	"github.com/electronicarts/doltdb-operator/pkg/dolt"
 )
 
@@ -26,26 +27,22 @@ func (c *Client) GetVersion(ctx context.Context) (string, error) {
 }
 
 func (c *Client) GetDBState(ctx context.Context) (dolt.DBState, error) {
-	var errBundle *multierror.Error
 	var dbState = dolt.DBState{}
 
 	role, epoch, err := c.GetRoleAndEpoch(ctx)
 	if err != nil {
-		dbState.Err = multierror.Append(dbState.Err, err)
+		dbState.Err = err
 		return dbState, err
 	}
 	dbState.Role = role
 	dbState.Epoch = epoch
 
-	version, err := c.GetVersion(ctx)
-	errBundle = multierror.Append(errBundle, err)
-
-	status, err := c.GetClusterStatus(ctx)
-	errBundle = multierror.Append(errBundle, err)
+	version, versionErr := c.GetVersion(ctx)
+	status, statusErr := c.GetClusterStatus(ctx)
 
 	dbState.Version = version
 	dbState.Status = status
-	dbState.Err = errBundle.ErrorOrNil()
+	dbState.Err = errors.Join(versionErr, statusErr)
 
 	return dbState, nil
 }

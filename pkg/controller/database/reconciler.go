@@ -7,7 +7,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
+	"errors"
+
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
 	"github.com/electronicarts/doltdb-operator/pkg/conditions"
 	sqlClient "github.com/electronicarts/doltdb-operator/pkg/dolt/sql"
@@ -78,38 +79,25 @@ func (r *SqlReconciler) Reconcile(ctx context.Context, resource Resource) (ctrl.
 
 	doltdb, err := r.RefResolver.DoltDB(ctx, resource.DoltDBRef(), resource.GetNamespace())
 	if err != nil {
-		var errBundle *multierror.Error
-		errBundle = multierror.Append(errBundle, err)
-
-		err = r.WrappedReconciler.PatchStatus(ctx, r.ConditionReady.PatcherRefResolver(err, doltdb))
-		errBundle = multierror.Append(errBundle, err)
-
-		return ctrl.Result{}, fmt.Errorf("error getting DoltDB: %v", errBundle)
+		patchErr := r.WrappedReconciler.PatchStatus(ctx, r.ConditionReady.PatcherRefResolver(err, doltdb))
+		return ctrl.Result{}, fmt.Errorf("error getting DoltDB: %v", errors.Join(err, patchErr))
 	}
 
 	if result, err := WaitForDoltDB(ctx, r.Client, doltdb, r.LogSql); !result.IsZero() || err != nil {
-		var errBundle *multierror.Error
-
 		if err != nil {
-			errBundle = multierror.Append(errBundle, err)
-
-			err := r.WrappedReconciler.PatchStatus(ctx, r.ConditionReady.PatcherWithError(err))
-			errBundle = multierror.Append(errBundle, err)
+			patchErr := r.WrappedReconciler.PatchStatus(ctx, r.ConditionReady.PatcherWithError(err))
+			return result, errors.Join(err, patchErr)
 		}
 
-		return result, errBundle.ErrorOrNil()
+		return result, nil
 	}
 
 	doltdbClient, err := sqlClient.NewClientWithDoltDB(ctx, doltdb, r.RefResolver)
 	if err != nil {
-		var errBundle *multierror.Error
-		errBundle = multierror.Append(errBundle, err)
-
 		msg := fmt.Sprintf("Error connecting to DoltDB: %v", err)
-		err = r.WrappedReconciler.PatchStatus(ctx, r.ConditionReady.PatcherFailed(msg))
-		errBundle = multierror.Append(errBundle, err)
+		patchErr := r.WrappedReconciler.PatchStatus(ctx, r.ConditionReady.PatcherFailed(msg))
 
-		return r.retryResult(ctx, resource, errBundle)
+		return r.retryResult(ctx, resource, errors.Join(err, patchErr))
 	}
 	defer func() {
 		if err := doltdbClient.Close(); err != nil {
@@ -117,26 +105,23 @@ func (r *SqlReconciler) Reconcile(ctx context.Context, resource Resource) (ctrl.
 		}
 	}()
 
-	err = r.WrappedReconciler.Reconcile(ctx, doltdbClient)
-	var errBundle *multierror.Error
-	errBundle = multierror.Append(errBundle, err)
+	reconcileErr := r.WrappedReconciler.Reconcile(ctx, doltdbClient)
 
-	if err := errBundle.ErrorOrNil(); err != nil {
-		msg := fmt.Sprintf("Error creating %s: %v", resource.GetName(), err)
-		err = r.WrappedReconciler.PatchStatus(ctx, r.ConditionReady.PatcherFailed(msg))
-		errBundle = multierror.Append(errBundle, err)
+	if reconcileErr != nil {
+		msg := fmt.Sprintf("Error creating %s: %v", resource.GetName(), reconcileErr)
+		patchErr := r.WrappedReconciler.PatchStatus(ctx, r.ConditionReady.PatcherFailed(msg))
 
-		return r.retryResult(ctx, resource, errBundle)
+		return r.retryResult(ctx, resource, errors.Join(reconcileErr, patchErr))
 	}
 
-	if err = r.Finalizer.AddFinalizer(ctx); err != nil {
-		errBundle = multierror.Append(errBundle, fmt.Errorf("error adding finalizer to %s: %v", resource.GetName(), err))
+	finalizerErr := r.Finalizer.AddFinalizer(ctx)
+	if finalizerErr != nil {
+		finalizerErr = fmt.Errorf("error adding finalizer to %s: %v", resource.GetName(), finalizerErr)
 	}
 
-	err = r.WrappedReconciler.PatchStatus(ctx, r.ConditionReady.PatcherWithError(errBundle.ErrorOrNil()))
-	errBundle = multierror.Append(errBundle, err)
+	patchErr := r.WrappedReconciler.PatchStatus(ctx, r.ConditionReady.PatcherWithError(finalizerErr))
 
-	return r.requeueResult(ctx, resource, errBundle.ErrorOrNil())
+	return r.requeueResult(ctx, resource, errors.Join(finalizerErr, patchErr))
 }
 
 func (r *SqlReconciler) retryResult(ctx context.Context, resource Resource, err error) (ctrl.Result, error) {

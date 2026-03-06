@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
 	corev1 "k8s.io/api/core/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -169,21 +168,18 @@ func (r *DoltDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 				continue
 			}
 
-			var errBundle *multierror.Error
-			errBundle = multierror.Append(errBundle, err)
-
 			msg := fmt.Sprintf("Error reconciling %s: %v", p.Name, err)
 			patchErr := status.PatchStatus(ctx, r.Client, &doltdb, func(s *doltv1alpha.DoltDBStatus) error {
 				patcher := r.ConditionReady.PatcherFailed(msg)
 				patcher(s)
 				return nil
 			})
-			if !apierrors.IsNotFound(patchErr) {
-				errBundle = multierror.Append(errBundle, patchErr)
+			if apierrors.IsNotFound(patchErr) {
+				patchErr = nil
 			}
 
-			if err := errBundle.ErrorOrNil(); err != nil {
-				return ctrl.Result{}, fmt.Errorf("error reconciling %s: %v", p.Name, err)
+			if combined := errors.Join(err, patchErr); combined != nil {
+				return ctrl.Result{}, fmt.Errorf("error reconciling %s: %v", p.Name, combined)
 			}
 		}
 		if !result.IsZero() {

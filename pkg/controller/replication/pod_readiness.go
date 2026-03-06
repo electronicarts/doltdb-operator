@@ -7,8 +7,9 @@ import (
 	"fmt"
 	"time"
 
+	"errors"
+
 	"github.com/go-logr/logr"
-	"github.com/hashicorp/go-multierror"
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
 	"github.com/electronicarts/doltdb-operator/pkg/builder"
 	"github.com/electronicarts/doltdb-operator/pkg/conditions"
@@ -87,18 +88,14 @@ func (r *PodReadinessController) ReconcilePodNotReady(ctx context.Context, pod c
 		}
 	}
 
-	var errBundle *multierror.Error
-	err = r.patch(ctx, doltdb, func(doltdb *doltv1alpha.DoltDB) {
+	patchErr := r.patch(ctx, doltdb, func(doltdb *doltv1alpha.DoltDB) {
 		doltdb.Replication().Primary.PodIndex = toIndex
 	})
-	errBundle = multierror.Append(errBundle, err)
-
-	err = r.patchStatus(ctx, doltdb, func(status *doltv1alpha.DoltDBStatus) {
+	statusErr := r.patchStatus(ctx, doltdb, func(status *doltv1alpha.DoltDBStatus) {
 		conditions.SetPrimarySwitching(status, doltdb)
 	})
-	errBundle = multierror.Append(errBundle, err)
 
-	if err := errBundle.ErrorOrNil(); err != nil {
+	if err := errors.Join(patchErr, statusErr); err != nil {
 		return fmt.Errorf("error patching DoltDB: %v", err)
 	}
 

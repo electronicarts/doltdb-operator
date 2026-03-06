@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

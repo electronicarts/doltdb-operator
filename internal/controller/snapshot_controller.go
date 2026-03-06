@@ -6,7 +6,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hashicorp/go-multierror"
+	"errors"
+
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
 	"github.com/electronicarts/doltdb-operator/pkg/builder"
 	"github.com/electronicarts/doltdb-operator/pkg/conditions"
@@ -68,16 +69,12 @@ func (r *SnapshotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, fmt.Errorf("error getting DoltDB: %v", err)
 	}
 	if result, err := database.WaitForDoltDB(ctx, r.Client, doltdb, false); !result.IsZero() || err != nil {
-		var errBundle *multierror.Error
-
 		if err != nil {
-			errBundle = multierror.Append(errBundle, err)
-
-			err := r.PatchStatus(ctx, &snapshot, r.ConditionReady.PatcherWithError(err))
-			errBundle = multierror.Append(errBundle, err)
+			patchErr := r.PatchStatus(ctx, &snapshot, r.ConditionReady.PatcherWithError(err))
+			return result, fmt.Errorf("error waiting for DoltDB: %v", errors.Join(err, patchErr))
 		}
 
-		return result, fmt.Errorf("error waiting for DoltDB: %v", errBundle.ErrorOrNil())
+		return result, nil
 	}
 
 	// Reconcile the Snapshot
@@ -87,13 +84,10 @@ func (r *SnapshotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		SubOwner: &snapshot,
 	}); err != nil {
 		// Update the Snapshot status
-		var errBundle *multierror.Error
-
 		msg := fmt.Sprintf("Error creating snapshot %s: %v", snapshot.GetName(), err)
-		err = r.PatchStatus(ctx, &snapshot, r.ConditionReady.PatcherFailed(msg))
-		errBundle = multierror.Append(errBundle, err)
+		patchErr := r.PatchStatus(ctx, &snapshot, r.ConditionReady.PatcherFailed(msg))
 
-		return ctrl.Result{Requeue: true}, errBundle.ErrorOrNil()
+		return ctrl.Result{Requeue: true}, errors.Join(err, patchErr)
 	}
 
 	if err := patch.PatchSnapshotStatus(ctx, r.Client, &snapshot, func(status *doltv1alpha.SnapshotStatus) error {
