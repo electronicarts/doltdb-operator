@@ -11,6 +11,7 @@ import (
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -149,14 +150,15 @@ func TestIsStatefulSetHealthy(t *testing.T) {
 	_ = doltv1alpha.AddToScheme(scheme)
 	_ = appsv1.AddToScheme(scheme)
 	_ = corev1.AddToScheme(scheme)
+	_ = discoveryv1.AddToScheme(scheme)
 
 	tests := []struct {
-		name          string
-		sts           *appsv1.StatefulSet
-		endpoints     *corev1.Endpoints
-		opts          []HealthOpt
-		expected      bool
-		expectedError error
+		name           string
+		sts            *appsv1.StatefulSet
+		endpointSlices []discoveryv1.EndpointSlice
+		opts           []HealthOpt
+		expected       bool
+		expectedError  error
 	}{
 		{
 			name: "StatefulSet with ready replicas and no endpoint policy",
@@ -204,21 +206,23 @@ func TestIsStatefulSetHealthy(t *testing.T) {
 					ReadyReplicas: 3,
 				},
 			},
-			endpoints: &corev1.Endpoints{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-sts",
-					Namespace: "default",
-				},
-				Subsets: []corev1.EndpointSubset{
-					{
-						Addresses: []corev1.EndpointAddress{
-							{IP: "1.1.1.1"},
-							{IP: "1.1.1.2"},
-							{IP: "1.1.1.3"},
+			endpointSlices: []discoveryv1.EndpointSlice{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-sts-abc",
+						Namespace: "default",
+						Labels: map[string]string{
+							discoveryv1.LabelServiceName: "test-sts",
 						},
-						Ports: []corev1.EndpointPort{
-							{Port: 8080},
-						},
+					},
+					AddressType: discoveryv1.AddressTypeIPv4,
+					Endpoints: []discoveryv1.Endpoint{
+						{Addresses: []string{"1.1.1.1"}, Conditions: discoveryv1.EndpointConditions{Ready: ptr.To(true)}},
+						{Addresses: []string{"1.1.1.2"}, Conditions: discoveryv1.EndpointConditions{Ready: ptr.To(true)}},
+						{Addresses: []string{"1.1.1.3"}, Conditions: discoveryv1.EndpointConditions{Ready: ptr.To(true)}},
+					},
+					Ports: []discoveryv1.EndpointPort{
+						{Port: ptr.To(int32(8080))},
 					},
 				},
 			},
@@ -242,19 +246,21 @@ func TestIsStatefulSetHealthy(t *testing.T) {
 					ReadyReplicas: 3,
 				},
 			},
-			endpoints: &corev1.Endpoints{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-sts",
-					Namespace: "default",
-				},
-				Subsets: []corev1.EndpointSubset{
-					{
-						Addresses: []corev1.EndpointAddress{
-							{IP: "1.1.1.1"},
+			endpointSlices: []discoveryv1.EndpointSlice{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-sts-abc",
+						Namespace: "default",
+						Labels: map[string]string{
+							discoveryv1.LabelServiceName: "test-sts",
 						},
-						Ports: []corev1.EndpointPort{
-							{Port: 8080},
-						},
+					},
+					AddressType: discoveryv1.AddressTypeIPv4,
+					Endpoints: []discoveryv1.Endpoint{
+						{Addresses: []string{"1.1.1.1"}, Conditions: discoveryv1.EndpointConditions{Ready: ptr.To(true)}},
+					},
+					Ports: []discoveryv1.EndpointPort{
+						{Port: ptr.To(int32(8080))},
 					},
 				},
 			},
@@ -278,20 +284,137 @@ func TestIsStatefulSetHealthy(t *testing.T) {
 					ReadyReplicas: 3,
 				},
 			},
-			endpoints: &corev1.Endpoints{
+			endpointSlices: []discoveryv1.EndpointSlice{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-sts-abc",
+						Namespace: "default",
+						Labels: map[string]string{
+							discoveryv1.LabelServiceName: "test-sts",
+						},
+					},
+					AddressType: discoveryv1.AddressTypeIPv4,
+					Endpoints: []discoveryv1.Endpoint{
+						{Addresses: []string{"1.1.1.1"}, Conditions: discoveryv1.EndpointConditions{Ready: ptr.To(true)}},
+					},
+					Ports: []discoveryv1.EndpointPort{
+						{Port: ptr.To(int32(8080))},
+					},
+				},
+			},
+			opts: []HealthOpt{
+				WithPort(8080),
+				WithEndpointPolicy(EndpointPolicyAll),
+			},
+			expected: false,
+		},
+		{
+			name: "Multiple EndpointSlices aggregated for one service",
+			sts: &appsv1.StatefulSet{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-sts",
 					Namespace: "default",
 				},
-				Subsets: []corev1.EndpointSubset{
-					{
-						Addresses: []corev1.EndpointAddress{
-							{IP: "1.1.1.1"},
-						},
-						Ports: []corev1.EndpointPort{
-							{Port: 8080},
+				Spec: appsv1.StatefulSetSpec{
+					Replicas: ptr.To(int32(3)),
+				},
+				Status: appsv1.StatefulSetStatus{
+					ReadyReplicas: 3,
+				},
+			},
+			endpointSlices: []discoveryv1.EndpointSlice{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-sts-abc",
+						Namespace: "default",
+						Labels: map[string]string{
+							discoveryv1.LabelServiceName: "test-sts",
 						},
 					},
+					AddressType: discoveryv1.AddressTypeIPv4,
+					Endpoints: []discoveryv1.Endpoint{
+						{Addresses: []string{"1.1.1.1"}, Conditions: discoveryv1.EndpointConditions{Ready: ptr.To(true)}},
+						{Addresses: []string{"1.1.1.2"}, Conditions: discoveryv1.EndpointConditions{Ready: ptr.To(true)}},
+					},
+					Ports: []discoveryv1.EndpointPort{
+						{Port: ptr.To(int32(8080))},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-sts-def",
+						Namespace: "default",
+						Labels: map[string]string{
+							discoveryv1.LabelServiceName: "test-sts",
+						},
+					},
+					AddressType: discoveryv1.AddressTypeIPv4,
+					Endpoints: []discoveryv1.Endpoint{
+						{Addresses: []string{"1.1.1.3"}, Conditions: discoveryv1.EndpointConditions{Ready: ptr.To(true)}},
+					},
+					Ports: []discoveryv1.EndpointPort{
+						{Port: ptr.To(int32(8080))},
+					},
+				},
+			},
+			opts: []HealthOpt{
+				WithPort(8080),
+				WithEndpointPolicy(EndpointPolicyAll),
+			},
+			expected: true,
+		},
+		{
+			name: "EndpointSlice with mix of ready and not-ready endpoints",
+			sts: &appsv1.StatefulSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-sts",
+					Namespace: "default",
+				},
+				Spec: appsv1.StatefulSetSpec{
+					Replicas: ptr.To(int32(3)),
+				},
+				Status: appsv1.StatefulSetStatus{
+					ReadyReplicas: 3,
+				},
+			},
+			endpointSlices: []discoveryv1.EndpointSlice{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-sts-abc",
+						Namespace: "default",
+						Labels: map[string]string{
+							discoveryv1.LabelServiceName: "test-sts",
+						},
+					},
+					AddressType: discoveryv1.AddressTypeIPv4,
+					Endpoints: []discoveryv1.Endpoint{
+						{Addresses: []string{"1.1.1.1"}, Conditions: discoveryv1.EndpointConditions{Ready: ptr.To(true)}},
+						{Addresses: []string{"1.1.1.2"}, Conditions: discoveryv1.EndpointConditions{Ready: ptr.To(false)}},
+						{Addresses: []string{"1.1.1.3"}, Conditions: discoveryv1.EndpointConditions{Ready: ptr.To(true)}},
+					},
+					Ports: []discoveryv1.EndpointPort{
+						{Port: ptr.To(int32(8080))},
+					},
+				},
+			},
+			opts: []HealthOpt{
+				WithPort(8080),
+				WithEndpointPolicy(EndpointPolicyAll),
+			},
+			expected: false,
+		},
+		{
+			name: "No EndpointSlices found",
+			sts: &appsv1.StatefulSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-sts",
+					Namespace: "default",
+				},
+				Spec: appsv1.StatefulSetSpec{
+					Replicas: ptr.To(int32(3)),
+				},
+				Status: appsv1.StatefulSetStatus{
+					ReadyReplicas: 3,
 				},
 			},
 			opts: []HealthOpt{
@@ -312,9 +435,9 @@ func TestIsStatefulSetHealthy(t *testing.T) {
 				}
 			}
 
-			if tt.endpoints != nil {
-				if err := client.Create(context.Background(), tt.endpoints); err != nil {
-					t.Errorf("failed to create Endpoints: %v", err)
+			for i := range tt.endpointSlices {
+				if err := client.Create(context.Background(), &tt.endpointSlices[i]); err != nil {
+					t.Errorf("failed to create EndpointSlice: %v", err)
 				}
 			}
 
@@ -487,13 +610,14 @@ func containsStr(s, substr string) bool {
 func TestIsServiceHealthy(t *testing.T) {
 	scheme := runtime.NewScheme()
 	_ = corev1.AddToScheme(scheme)
+	_ = discoveryv1.AddToScheme(scheme)
 
 	tests := []struct {
-		name          string
-		serviceKey    types.NamespacedName
-		endpoints     *corev1.Endpoints
-		expected      bool
-		expectedError error
+		name           string
+		serviceKey     types.NamespacedName
+		endpointSlices []discoveryv1.EndpointSlice
+		expected       bool
+		expectedError  error
 	}{
 		{
 			name: "Service with healthy endpoints",
@@ -501,64 +625,55 @@ func TestIsServiceHealthy(t *testing.T) {
 				Name:      "test-service",
 				Namespace: "default",
 			},
-			endpoints: &corev1.Endpoints{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-service",
-					Namespace: "default",
-				},
-				Subsets: []corev1.EndpointSubset{
-					{
-						Addresses: []corev1.EndpointAddress{
-							{IP: "1.1.1.1"},
+			endpointSlices: []discoveryv1.EndpointSlice{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-service-abc",
+						Namespace: "default",
+						Labels: map[string]string{
+							discoveryv1.LabelServiceName: "test-service",
 						},
+					},
+					AddressType: discoveryv1.AddressTypeIPv4,
+					Endpoints: []discoveryv1.Endpoint{
+						{Addresses: []string{"1.1.1.1"}, Conditions: discoveryv1.EndpointConditions{Ready: ptr.To(true)}},
 					},
 				},
 			},
 			expected: true,
 		},
 		{
-			name: "Service with no subsets",
+			name: "Service with no EndpointSlices",
 			serviceKey: types.NamespacedName{
 				Name:      "test-service",
 				Namespace: "default",
-			},
-			endpoints: &corev1.Endpoints{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-service",
-					Namespace: "default",
-				},
 			},
 			expected:      false,
-			expectedError: fmt.Errorf("'test-service/default' subsets not ready"),
+			expectedError: fmt.Errorf("'test-service/default' endpoints not ready"),
 		},
 		{
-			name: "Service with no addresses",
+			name: "Service with no ready endpoints",
 			serviceKey: types.NamespacedName{
 				Name:      "test-service",
 				Namespace: "default",
 			},
-			endpoints: &corev1.Endpoints{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-service",
-					Namespace: "default",
-				},
-				Subsets: []corev1.EndpointSubset{
-					{
-						Addresses: []corev1.EndpointAddress{},
+			endpointSlices: []discoveryv1.EndpointSlice{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-service-abc",
+						Namespace: "default",
+						Labels: map[string]string{
+							discoveryv1.LabelServiceName: "test-service",
+						},
+					},
+					AddressType: discoveryv1.AddressTypeIPv4,
+					Endpoints: []discoveryv1.Endpoint{
+						{Addresses: []string{"1.1.1.1"}, Conditions: discoveryv1.EndpointConditions{Ready: ptr.To(false)}},
 					},
 				},
 			},
 			expected:      false,
-			expectedError: fmt.Errorf("'test-service/default' addresses not ready"),
-		},
-		{
-			name: "Service not found",
-			serviceKey: types.NamespacedName{
-				Name:      "non-existent-service",
-				Namespace: "default",
-			},
-			expected:      false,
-			expectedError: errors.New("endpoints \"non-existent-service\" not found"),
+			expectedError: fmt.Errorf("'test-service/default' no ready endpoints"),
 		},
 	}
 
@@ -566,9 +681,9 @@ func TestIsServiceHealthy(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			client := fake.NewClientBuilder().WithScheme(scheme).Build()
 
-			if tt.endpoints != nil {
-				if err := client.Create(context.Background(), tt.endpoints); err != nil {
-					t.Errorf("failed to create Endpoints: %v", err)
+			for i := range tt.endpointSlices {
+				if err := client.Create(context.Background(), &tt.endpointSlices[i]); err != nil {
+					t.Errorf("failed to create EndpointSlice: %v", err)
 				}
 			}
 

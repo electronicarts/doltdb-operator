@@ -14,6 +14,7 @@ import (
 	"github.com/electronicarts/doltdb-operator/pkg/statefulset"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
@@ -47,25 +48,26 @@ func IsStatefulSetHealthy(
 		return true, nil
 	}
 
-	var endpoints corev1.Endpoints
-	if err := client.Get(ctx, serviceKey, &endpoints); err != nil {
-		return false, ctrlclient.IgnoreNotFound(err)
+	var sliceList discoveryv1.EndpointSliceList
+	if err := client.List(ctx, &sliceList,
+		ctrlclient.InNamespace(serviceKey.Namespace),
+		ctrlclient.MatchingLabels{discoveryv1.LabelServiceName: serviceKey.Name},
+	); err != nil {
+		return false, err
 	}
-	for _, subset := range endpoints.Subsets {
-		for _, port := range subset.Ports {
-			if port.Port == *healthOpts.Port {
-				switch *healthOpts.EndpointPolicy {
-				case EndpointPolicyAll:
-					return len(subset.Addresses) == int(healthOpts.DesiredReplicas), nil
-				case EndpointPolicyAtLeastOne:
-					return len(subset.Addresses) > 0, nil
-				default:
-					return false, fmt.Errorf("unsupported EndpointPolicy '%v'", *healthOpts.EndpointPolicy)
-				}
-			}
-		}
+	if len(sliceList.Items) == 0 {
+		return false, nil
 	}
-	return false, nil
+
+	readyCount := countReadyEndpoints(sliceList.Items, *healthOpts.Port)
+	switch *healthOpts.EndpointPolicy {
+	case EndpointPolicyAll:
+		return readyCount == int(healthOpts.DesiredReplicas), nil
+	case EndpointPolicyAtLeastOne:
+		return readyCount > 0, nil
+	default:
+		return false, fmt.Errorf("unsupported EndpointPolicy '%v'", *healthOpts.EndpointPolicy)
+	}
 }
 
 // HealthyDoltDBReplica returns the index of a healthy DoltDB replica that is not the current primary pod.
@@ -158,18 +160,24 @@ func HealthyDoltDBStandbys(ctx context.Context, client ctrlclient.Client, doltdb
 
 // IsServiceHealthy checks if the service specified by the serviceKey has healthy endpoints.
 func IsServiceHealthy(ctx context.Context, client ctrlclient.Client, serviceKey types.NamespacedName) (bool, error) {
-	var endpoints corev1.Endpoints
-	err := client.Get(ctx, serviceKey, &endpoints)
-	if err != nil {
+	var sliceList discoveryv1.EndpointSliceList
+	if err := client.List(ctx, &sliceList,
+		ctrlclient.InNamespace(serviceKey.Namespace),
+		ctrlclient.MatchingLabels{discoveryv1.LabelServiceName: serviceKey.Name},
+	); err != nil {
 		return false, err
 	}
-	if len(endpoints.Subsets) == 0 {
-		return false, fmt.Errorf("'%s/%s' subsets not ready", serviceKey.Name, serviceKey.Namespace)
+	if len(sliceList.Items) == 0 {
+		return false, fmt.Errorf("'%s/%s' endpoints not ready", serviceKey.Name, serviceKey.Namespace)
 	}
-	if len(endpoints.Subsets[0].Addresses) == 0 {
-		return false, fmt.Errorf("'%s/%s' addresses not ready", serviceKey.Name, serviceKey.Namespace)
+	for _, slice := range sliceList.Items {
+		for _, ep := range slice.Endpoints {
+			if ep.Conditions.Ready != nil && *ep.Conditions.Ready {
+				return true, nil
+			}
+		}
 	}
-	return true, nil
+	return false, fmt.Errorf("'%s/%s' no ready endpoints", serviceKey.Name, serviceKey.Namespace)
 }
 
 // StandbyHostFQDNs returns the FQDNs of healthy standby pods for use in graceful transitions.
@@ -192,6 +200,33 @@ func StandbyHostFQDNs(ctx context.Context, client ctrlclient.Client, doltdb *dol
 			doltdb.ObjectMeta, *podIndex, doltdb.InternalServiceKey().Name)
 	}
 	return hosts, nil
+}
+
+// countReadyEndpoints counts the number of ready endpoints across all EndpointSlices
+// that expose the given port.
+func countReadyEndpoints(slices []discoveryv1.EndpointSlice, port int32) int {
+	count := 0
+	for _, slice := range slices {
+		if !sliceHasPort(slice, port) {
+			continue
+		}
+		for _, ep := range slice.Endpoints {
+			if ep.Conditions.Ready != nil && *ep.Conditions.Ready {
+				count++
+			}
+		}
+	}
+	return count
+}
+
+// sliceHasPort returns true if the EndpointSlice exposes the given port.
+func sliceHasPort(slice discoveryv1.EndpointSlice, port int32) bool {
+	for _, p := range slice.Ports {
+		if p.Port != nil && *p.Port == port {
+			return true
+		}
+	}
+	return false
 }
 
 // sortPodList sorts the given PodList by pod name.

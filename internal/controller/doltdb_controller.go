@@ -83,7 +83,7 @@ type reconcilePhaseDoltDB struct {
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles;rolebindings;clusterrolebindings,verbs=list;watch;create;patch
 // +kubebuilder:rbac:groups=authorization.k8s.io,resources=subjectaccessreviews,verbs=create
 // +kubebuilder:rbac:groups=authentication.k8s.io,resources=tokenreviews,verbs=create
-// +kubebuilder:rbac:groups="",resources=endpoints,verbs=list;get;watch;create;update;delete
+// +kubebuilder:rbac:groups=discovery.k8s.io,resources=endpointslices,verbs=list;get;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
