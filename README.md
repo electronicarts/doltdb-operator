@@ -20,6 +20,15 @@ Run and operate DoltDB Cluster in a cloud native way. Declaratively manage your 
 | `User` | Database user management |
 | `Grant` | Permission grants for users |
 | `Snapshot` | Volume snapshots for backups |
+| `Backup` | On-demand backup to S3, DoltHub, or local storage |
+| `BackupSchedule` | Cron-based scheduled backups |
+
+## Roadmap
+
+- **Backup-aware switchover** — prevent primary switchover while a backup is running to avoid unnecessary retries
+- **Validating and mutating webhooks** — webhook certificate management for CRD admission control
+- **Remote replication** — support for cross-cluster replication via Dolt remotes
+- **Backup restore** — declarative restore from S3/DoltHub backups via a `BackupRestore` CRD
 
 ## Getting Started
 
