@@ -4,6 +4,7 @@ package backup
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"time"
 
@@ -55,7 +56,7 @@ func (r *Reconciler) Execute(
 	}
 
 	for _, db := range databases {
-		backupName := fmt.Sprintf("%s-%s", backup.Name, db)
+		backupName := stableBackupName(backupURL, db)
 		logger.Info("Backing up database", "database", db, "backupName", backupName)
 
 		if err := doltdbClient.BackupDatabase(ctx, db, backupName, backupURL); err != nil {
@@ -65,6 +66,14 @@ func (r *Reconciler) Execute(
 	}
 
 	return nil
+}
+
+// stableBackupName generates a deterministic backup name from the URL and
+// database name. This ensures all Backup CRs targeting the same destination
+// reuse the same Dolt remote registration, enabling incremental syncs.
+func stableBackupName(url, database string) string {
+	h := sha256.Sum256([]byte(url))
+	return fmt.Sprintf("bk-%s-%x", database, h[:8])
 }
 
 // ShouldRetry evaluates whether a backup should be retried based on the
@@ -80,6 +89,9 @@ func ShouldRetry(retryCount, backoffLimit int32) (requeueAfter time.Duration, li
 // EnsureS3EnvVars patches the DoltDB spec to include AWS credential env vars
 // from the Backup's S3 secret key references. This is a no-op if the env vars
 // are already present (e.g., IRSA or previously configured).
+//
+// Secret references are validated before injection to prevent a Backup CR from
+// injecting env vars that reference non-existent secrets.
 func (r *Reconciler) EnsureS3EnvVars(
 	ctx context.Context,
 	doltdb *doltv1alpha.DoltDB,
@@ -94,6 +106,11 @@ func (r *Reconciler) EnsureS3EnvVars(
 		return nil
 	}
 
+	// Validate that referenced secrets exist before mutating DoltDB spec.
+	if err := r.validateSecretRefs(ctx, doltdb.Namespace, s3); err != nil {
+		return fmt.Errorf("error validating S3 secret references: %w", err)
+	}
+
 	logger := log.FromContext(ctx)
 	logger.Info("Injecting S3 credential env vars into DoltDB", "doltdb", doltdb.Name)
 
@@ -104,6 +121,29 @@ func (r *Reconciler) EnsureS3EnvVars(
 		}
 	}
 	return r.Patch(ctx, doltdb, p)
+}
+
+// validateSecretRefs checks that the secrets referenced by S3 credential
+// fields exist in the given namespace.
+func (r *Reconciler) validateSecretRefs(ctx context.Context, namespace string, s3 *doltv1alpha.S3BackupStorage) error {
+	refs := []*doltv1alpha.SecretKeySelector{
+		s3.AccessKeyIdSecretKeyRef,
+		s3.SecretAccessKeySecretKeyRef,
+	}
+	for _, ref := range refs {
+		if ref == nil {
+			continue
+		}
+		var secret corev1.Secret
+		key := client.ObjectKey{Namespace: namespace, Name: ref.Name}
+		if err := r.Get(ctx, key, &secret); err != nil {
+			return fmt.Errorf("secret '%s' not found in namespace '%s': %w", ref.Name, namespace, err)
+		}
+		if _, ok := secret.Data[ref.Key]; !ok {
+			return fmt.Errorf("key '%s' not found in secret '%s/%s'", ref.Key, namespace, ref.Name)
+		}
+	}
+	return nil
 }
 
 // BuildBackupURL constructs the DoltDB backup URL from the storage configuration.
@@ -121,20 +161,15 @@ func BuildBackupURL(storage doltv1alpha.BackupStorage) (string, error) {
 }
 
 // buildS3URL constructs a DoltDB-compatible S3 URL.
-// Format: aws://[bucket:region:endpoint]/prefix or aws://[bucket]/prefix
+// Dolt's aws:// URL format is: aws://[dynamo_table:s3_bucket]/db_path
+// The DynamoDB table name defaults to the bucket name (Dolt convention).
+// Region must be set via AWS_REGION env var, not in the URL.
 func buildS3URL(s3 *doltv1alpha.S3BackupStorage) string {
-	bucket := s3.Bucket
-	if s3.Region != "" {
-		bucket = fmt.Sprintf("%s:%s", bucket, s3.Region)
+	dynamoTable := s3.Bucket
+	if s3.DynamoDBTable != "" {
+		dynamoTable = s3.DynamoDBTable
 	}
-	if s3.Endpoint != "" {
-		if s3.Region == "" {
-			bucket = fmt.Sprintf("%s:", bucket)
-		}
-		bucket = fmt.Sprintf("%s:%s", bucket, s3.Endpoint)
-	}
-
-	url := fmt.Sprintf("aws://[%s]", bucket)
+	url := fmt.Sprintf("aws://[%s:%s]", dynamoTable, s3.Bucket)
 	if s3.Prefix != "" {
 		url = fmt.Sprintf("%s/%s", url, s3.Prefix)
 	}

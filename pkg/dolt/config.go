@@ -17,11 +17,20 @@ const (
 
 // Config represents the structure of the configuration data.
 type Config struct {
-	Behavior Behavior `yaml:"behavior"`
-	LogLevel string   `yaml:"log_level"`
-	Cluster  *Cluster `yaml:"cluster,omitempty"`
-	Listener Listener `yaml:"listener"`
-	Metrics  Metrics  `yaml:"metrics,omitempty"`
+	Behavior  Behavior   `yaml:"behavior"`
+	LogLevel  string     `yaml:"log_level"`
+	Cluster   *Cluster   `yaml:"cluster,omitempty"`
+	Listener  Listener   `yaml:"listener"`
+	Metrics   Metrics    `yaml:"metrics,omitempty"`
+	MCPServer *MCPServer `yaml:"mcp_server,omitempty"`
+}
+
+// MCPServer represents the mcp_server section of the configuration.
+type MCPServer struct {
+	Port     int32  `yaml:"port"`
+	User     string `yaml:"user"`
+	Password string `yaml:"password"`
+	Database string `yaml:"database,omitempty"`
 }
 
 type Behavior struct {

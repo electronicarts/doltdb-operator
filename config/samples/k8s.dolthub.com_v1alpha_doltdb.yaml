@@ -4,7 +4,7 @@ metadata:
   name: dolt
   namespace: default
 spec:
-  engineVersion: 1.57.2
+  engineVersion: 1.83.6
   image: "dolthub/dolt"
   replicas: 2
   podAnnotations:

@@ -5,6 +5,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"time"
 
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
 	"github.com/electronicarts/doltdb-operator/pkg/conditions"
@@ -59,7 +60,15 @@ func (r *BackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return result, err
 	}
 
-	// Phase 3: Execute backup
+	// Phase 3: Check for concurrent backups targeting the same DoltDB
+	if running, err := r.hasRunningBackup(ctx, &bk); err != nil {
+		return ctrl.Result{Requeue: true}, err
+	} else if running {
+		logger.Info("Another backup is already running for this DoltDB, requeuing")
+		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+	}
+
+	// Phase 4: Execute backup
 	if err := r.executeBackup(ctx, &bk, doltdb); err != nil {
 		return r.handleFailure(ctx, &bk, err)
 	}
@@ -186,6 +195,26 @@ func (r *BackupReconciler) handleFailure(
 
 	logger.Info("Backup failed, retrying", "retryCount", bk.Status.RetryCount, "requeueAfter", requeueAfter)
 	return ctrl.Result{RequeueAfter: requeueAfter}, nil
+}
+
+// hasRunningBackup returns true if another Backup targeting the same DoltDB
+// is currently in Running phase. This prevents concurrent syncs to the same
+// Dolt remote which could cause data corruption.
+func (r *BackupReconciler) hasRunningBackup(ctx context.Context, bk *doltv1alpha.Backup) (bool, error) {
+	var backupList doltv1alpha.BackupList
+	if err := r.List(ctx, &backupList, client.InNamespace(bk.Namespace)); err != nil {
+		return false, fmt.Errorf("error listing backups: %w", err)
+	}
+	for i := range backupList.Items {
+		other := &backupList.Items[i]
+		if other.Name == bk.Name {
+			continue
+		}
+		if other.Spec.DoltDBRef.Name == bk.Spec.DoltDBRef.Name && other.IsRunning() {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

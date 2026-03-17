@@ -56,6 +56,11 @@ type S3BackupStorage struct {
 	// +optional
 	// +kubebuilder:validation:MaxLength=512
 	Prefix string `json:"prefix,omitempty"`
+	// DynamoDBTable is the DynamoDB table name used by Dolt as a manifest store.
+	// Defaults to the bucket name if not specified (Dolt convention).
+	// +optional
+	// +kubebuilder:validation:MaxLength=255
+	DynamoDBTable string `json:"dynamoDBTable,omitempty"`
 	// ForcePathStyle enables path-style addressing for S3-compatible services.
 	// +optional
 	ForcePathStyle *bool `json:"forcePathStyle,omitempty"`

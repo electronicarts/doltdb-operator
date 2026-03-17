@@ -88,8 +88,15 @@ mysql -h 127.0.0.1 -P 3306 -u root
 | `User` | Database user management (references credentials from Kubernetes Secrets) |
 | `Grant` | SQL permission grants for users |
 | `Snapshot` | Point-in-time volume snapshots for backups |
-| `Backup` | Dolt native backup management |
+| `Backup` | On-demand backup to S3, DoltHub, or local storage |
 | `BackupSchedule` | Cron-based scheduled backups |
+
+## Roadmap
+
+- **Backup-aware switchover** — prevent primary switchover while a backup is running to avoid unnecessary retries
+- **Validating and mutating webhooks** — webhook certificate management for CRD admission control
+- **Remote replication** — support for cross-cluster replication via Dolt remotes
+- **Backup restore** — declarative restore from S3/DoltHub backups via a `BackupRestore` CRD
 
 ## Architecture
 

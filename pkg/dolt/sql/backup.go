@@ -174,8 +174,9 @@ func (c *Client) RemoveBackup(ctx context.Context, name string) error {
 	return nil
 }
 
-// BackupDatabase is a convenience method that sets the active database,
-// registers a backup destination, and syncs the backup.
+// BackupDatabase sets the active database, registers a named backup
+// destination, and syncs. The caller must ensure the backup name is stable
+// per URL+database to enable incremental syncs and avoid address conflicts.
 func (c *Client) BackupDatabase(ctx context.Context, database, backupName, backupURL string) error {
 	if err := c.UseDatabase(ctx, database); err != nil {
 		return fmt.Errorf("error setting database '%s': %w", database, err)
@@ -184,6 +185,19 @@ func (c *Client) BackupDatabase(ctx context.Context, database, backupName, backu
 		return fmt.Errorf("error adding backup for database '%s': %w", database, err)
 	}
 	if err := c.SyncBackup(ctx, backupName); err != nil {
+		return fmt.Errorf("error syncing backup for database '%s': %w", database, err)
+	}
+	return nil
+}
+
+// SyncBackupDatabase sets the active database and performs a one-shot sync to
+// the given URL without registering a named backup. This avoids address
+// conflicts but does not benefit from incremental syncs.
+func (c *Client) SyncBackupDatabase(ctx context.Context, database, backupURL string) error {
+	if err := c.UseDatabase(ctx, database); err != nil {
+		return fmt.Errorf("error setting database '%s': %w", database, err)
+	}
+	if err := c.SyncBackupURL(ctx, backupURL); err != nil {
 		return fmt.Errorf("error syncing backup for database '%s': %w", database, err)
 	}
 	return nil

@@ -56,6 +56,20 @@ func GenerateConfigMapData(doltdb *doltv1alpha.DoltDB) (map[string]string, error
 			}
 		}
 
+		if doltdb.Spec.Server.MCPServer != nil {
+			mcp := doltdb.Spec.Server.MCPServer
+			user := "${DOLT_USERNAME}"
+			if mcp.User != "" {
+				user = "${DOLT_MCP_USER}"
+			}
+			config.MCPServer = &MCPServer{
+				Port:     mcp.Port,
+				User:     user,
+				Password: "${DOLT_MCP_PASSWORD}",
+				Database: mcp.Database,
+			}
+		}
+
 		yamlData, err := yaml.Marshal(config)
 		if err != nil {
 			return nil, fmt.Errorf("error marshaling DoltDB config to YAML: %v", err)

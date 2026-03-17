@@ -20,6 +20,7 @@ const (
 	DoltRemotesAPIPortName = "grpc-remotesapi"
 	DoltMetricsPortName    = "http-metrics"
 	DoltProfilerPortName   = "http-profiler"
+	DoltMCPPortName        = "http-mcp"
 
 	DoltDataVolume   = "dolt-data"
 	DoltConfigVolume = "dolt-config"
@@ -89,6 +90,28 @@ func doltEnv(doltdb *doltv1alpha.DoltDB) []corev1.EnvVar {
 			},
 		},
 	}
+	if doltdb.Spec.Server.MCPServer != nil {
+		mcp := doltdb.Spec.Server.MCPServer
+		if mcp.User != "" {
+			env = append(env, corev1.EnvVar{
+				Name:  "DOLT_MCP_USER",
+				Value: mcp.User,
+			})
+		}
+
+		// Password always comes from a Secret — custom if provided, root as explicit fallback
+		passwordSecretRef := doltdb.RootPasswordSecretKeyRef().ToKubernetesType()
+		if mcp.PasswordSecretKeyRef != nil {
+			passwordSecretRef = mcp.PasswordSecretKeyRef.ToKubernetesType()
+		}
+		env = append(env, corev1.EnvVar{
+			Name: "DOLT_MCP_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: ptr.To(passwordSecretRef),
+			},
+		})
+	}
+
 	env = append(env, doltdb.Spec.Env...)
 	return env
 }
@@ -112,6 +135,13 @@ func doltContainerPorts(doltdb *doltv1alpha.DoltDB) []corev1.ContainerPort {
 		ports = append(ports, corev1.ContainerPort{
 			ContainerPort: 6060,
 			Name:          DoltProfilerPortName,
+		})
+	}
+
+	if doltdb.Spec.Server.MCPServer != nil {
+		ports = append(ports, corev1.ContainerPort{
+			ContainerPort: doltdb.Spec.Server.MCPServer.Port,
+			Name:          DoltMCPPortName,
 		})
 	}
 

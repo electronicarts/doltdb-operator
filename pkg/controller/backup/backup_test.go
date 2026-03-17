@@ -3,13 +3,16 @@
 package backup
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	doltv1alpha "github.com/electronicarts/doltdb-operator/api/v1alpha"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/utils/ptr"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestBuildBackupURL(t *testing.T) {
@@ -26,7 +29,7 @@ func TestBuildBackupURL(t *testing.T) {
 					Bucket: "my-bucket",
 				},
 			},
-			want: "aws://[my-bucket]",
+			want: "aws://[my-bucket:my-bucket]",
 		},
 		{
 			name: "S3 with region",
@@ -36,7 +39,7 @@ func TestBuildBackupURL(t *testing.T) {
 					Region: "us-east-1",
 				},
 			},
-			want: "aws://[my-bucket:us-east-1]",
+			want: "aws://[my-bucket:my-bucket]",
 		},
 		{
 			name: "S3 with region and prefix",
@@ -47,28 +50,7 @@ func TestBuildBackupURL(t *testing.T) {
 					Prefix: "backups/daily",
 				},
 			},
-			want: "aws://[my-bucket:us-west-2]/backups/daily",
-		},
-		{
-			name: "S3 with endpoint (MinIO)",
-			storage: doltv1alpha.BackupStorage{
-				S3: &doltv1alpha.S3BackupStorage{
-					Bucket:   "my-bucket",
-					Region:   "us-east-1",
-					Endpoint: "minio.local:9000",
-				},
-			},
-			want: "aws://[my-bucket:us-east-1:minio.local:9000]",
-		},
-		{
-			name: "S3 with endpoint but no region",
-			storage: doltv1alpha.BackupStorage{
-				S3: &doltv1alpha.S3BackupStorage{
-					Bucket:   "my-bucket",
-					Endpoint: "minio.local:9000",
-				},
-			},
-			want: "aws://[my-bucket::minio.local:9000]",
+			want: "aws://[my-bucket:my-bucket]/backups/daily",
 		},
 		{
 			name: "DoltHub storage",
@@ -108,6 +90,34 @@ func TestBuildBackupURL(t *testing.T) {
 	}
 }
 
+func TestStableBackupName(t *testing.T) {
+	url := "aws://[my-bucket:my-bucket]/backups"
+
+	t.Run("deterministic", func(t *testing.T) {
+		a := stableBackupName(url, "mydb")
+		b := stableBackupName(url, "mydb")
+		assert.Equal(t, a, b)
+	})
+
+	t.Run("different databases produce different names", func(t *testing.T) {
+		a := stableBackupName(url, "db1")
+		b := stableBackupName(url, "db2")
+		assert.NotEqual(t, a, b)
+	})
+
+	t.Run("different URLs produce different names", func(t *testing.T) {
+		a := stableBackupName("aws://[bucket-a:bucket-a]/backups", "mydb")
+		b := stableBackupName("aws://[bucket-b:bucket-b]/backups", "mydb")
+		assert.NotEqual(t, a, b)
+	})
+
+	t.Run("format includes database name", func(t *testing.T) {
+		name := stableBackupName(url, "madden26")
+		assert.Contains(t, name, "madden26")
+		assert.True(t, len(name) > 0)
+	})
+}
+
 func TestBuildS3URL(t *testing.T) {
 	tests := []struct {
 		name string
@@ -115,15 +125,29 @@ func TestBuildS3URL(t *testing.T) {
 		want string
 	}{
 		{
-			name: "full S3 config",
+			name: "bucket only",
 			s3: &doltv1alpha.S3BackupStorage{
-				Bucket:         "backup-bucket",
-				Region:         "eu-west-1",
-				Endpoint:       "s3.eu-west-1.amazonaws.com",
-				Prefix:         "dolt/prod",
-				ForcePathStyle: ptr.To(true),
+				Bucket: "backup-bucket",
 			},
-			want: "aws://[backup-bucket:eu-west-1:s3.eu-west-1.amazonaws.com]/dolt/prod",
+			want: "aws://[backup-bucket:backup-bucket]",
+		},
+		{
+			name: "bucket with prefix",
+			s3: &doltv1alpha.S3BackupStorage{
+				Bucket: "backup-bucket",
+				Region: "eu-west-1",
+				Prefix: "dolt/prod",
+			},
+			want: "aws://[backup-bucket:backup-bucket]/dolt/prod",
+		},
+		{
+			name: "custom DynamoDB table",
+			s3: &doltv1alpha.S3BackupStorage{
+				Bucket:        "backup-bucket",
+				DynamoDBTable: "my-custom-table",
+				Prefix:        "backups",
+			},
+			want: "aws://[my-custom-table:backup-bucket]/backups",
 		},
 	}
 
@@ -284,4 +308,134 @@ func TestShouldRetry(t *testing.T) {
 			assert.Equal(t, tt.wantDelay, delay)
 		})
 	}
+}
+
+func newTestScheme() *runtime.Scheme {
+	scheme := runtime.NewScheme()
+	_ = doltv1alpha.AddToScheme(scheme)
+	_ = corev1.AddToScheme(scheme)
+	return scheme
+}
+
+func TestValidateSecretRefs(t *testing.T) {
+	ctx := context.Background()
+	scheme := newTestScheme()
+
+	validSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "aws-creds",
+			Namespace: "default",
+		},
+		Data: map[string][]byte{
+			"access-key-id":     []byte("AKIA..."),
+			"secret-access-key": []byte("secret"),
+		},
+	}
+
+	t.Run("valid secret refs", func(t *testing.T) {
+		client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(validSecret).Build()
+		r := &Reconciler{Client: client}
+
+		err := r.validateSecretRefs(ctx, "default", &doltv1alpha.S3BackupStorage{
+			AccessKeyIdSecretKeyRef: &doltv1alpha.SecretKeySelector{
+				LocalObjectReference: doltv1alpha.LocalObjectReference{Name: "aws-creds"},
+				Key:                  "access-key-id",
+			},
+			SecretAccessKeySecretKeyRef: &doltv1alpha.SecretKeySelector{
+				LocalObjectReference: doltv1alpha.LocalObjectReference{Name: "aws-creds"},
+				Key:                  "secret-access-key",
+			},
+		})
+		assert.NoError(t, err)
+	})
+
+	t.Run("secret does not exist", func(t *testing.T) {
+		client := fake.NewClientBuilder().WithScheme(scheme).Build()
+		r := &Reconciler{Client: client}
+
+		err := r.validateSecretRefs(ctx, "default", &doltv1alpha.S3BackupStorage{
+			AccessKeyIdSecretKeyRef: &doltv1alpha.SecretKeySelector{
+				LocalObjectReference: doltv1alpha.LocalObjectReference{Name: "nonexistent"},
+				Key:                  "access-key-id",
+			},
+		})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "not found")
+	})
+
+	t.Run("key does not exist in secret", func(t *testing.T) {
+		client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(validSecret).Build()
+		r := &Reconciler{Client: client}
+
+		err := r.validateSecretRefs(ctx, "default", &doltv1alpha.S3BackupStorage{
+			AccessKeyIdSecretKeyRef: &doltv1alpha.SecretKeySelector{
+				LocalObjectReference: doltv1alpha.LocalObjectReference{Name: "aws-creds"},
+				Key:                  "wrong-key",
+			},
+		})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "key 'wrong-key' not found")
+	})
+
+	t.Run("nil refs are skipped", func(t *testing.T) {
+		client := fake.NewClientBuilder().WithScheme(scheme).Build()
+		r := &Reconciler{Client: client}
+
+		err := r.validateSecretRefs(ctx, "default", &doltv1alpha.S3BackupStorage{
+			Bucket: "my-bucket",
+		})
+		assert.NoError(t, err)
+	})
+
+	t.Run("wrong namespace", func(t *testing.T) {
+		client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(validSecret).Build()
+		r := &Reconciler{Client: client}
+
+		err := r.validateSecretRefs(ctx, "other-namespace", &doltv1alpha.S3BackupStorage{
+			AccessKeyIdSecretKeyRef: &doltv1alpha.SecretKeySelector{
+				LocalObjectReference: doltv1alpha.LocalObjectReference{Name: "aws-creds"},
+				Key:                  "access-key-id",
+			},
+		})
+		assert.Error(t, err)
+	})
+}
+
+func TestEnsureS3EnvVars(t *testing.T) {
+	ctx := context.Background()
+	scheme := newTestScheme()
+
+	t.Run("rejects nonexistent secret", func(t *testing.T) {
+		doltdb := &doltv1alpha.DoltDB{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-doltdb", Namespace: "default"},
+		}
+		client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(doltdb).Build()
+		r := &Reconciler{Client: client}
+
+		err := r.EnsureS3EnvVars(ctx, doltdb, &doltv1alpha.S3BackupStorage{
+			Bucket: "my-bucket",
+			AccessKeyIdSecretKeyRef: &doltv1alpha.SecretKeySelector{
+				LocalObjectReference: doltv1alpha.LocalObjectReference{Name: "nonexistent"},
+				Key:                  "key",
+			},
+		})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "validating S3 secret references")
+	})
+
+	t.Run("skips when no secret refs (IRSA)", func(t *testing.T) {
+		doltdb := &doltv1alpha.DoltDB{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-doltdb", Namespace: "default"},
+		}
+		client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(doltdb).Build()
+		r := &Reconciler{Client: client}
+
+		err := r.EnsureS3EnvVars(ctx, doltdb, &doltv1alpha.S3BackupStorage{
+			Bucket: "my-bucket",
+			Region: "us-east-1",
+		})
+		// Region-only produces desired env vars but no secret refs to validate
+		// This should still work since validateSecretRefs skips nil refs
+		assert.NoError(t, err)
+	})
 }

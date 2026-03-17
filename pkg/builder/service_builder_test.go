@@ -71,6 +71,40 @@ func TestDoltServicePorts(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "with MCP server port",
+			doltdb: &doltv1alpha.DoltDB{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "doltdb-mcp",
+					Namespace: "default",
+				},
+				Spec: doltv1alpha.DoltDBSpec{
+					Server: doltv1alpha.Server{
+						Listener: doltv1alpha.Listener{
+							Port: 3306,
+						},
+						Cluster: doltv1alpha.Cluster{
+							RemotesAPI: doltv1alpha.RemotesAPI{
+								Port: 50051,
+							},
+						},
+						MCPServer: &doltv1alpha.MCPServer{
+							Port: 7007,
+						},
+					},
+				},
+			},
+			expectedPorts: []corev1.ServicePort{
+				{
+					Port: 3306,
+					Name: DoltMySQLPortName,
+				},
+				{
+					Port: 7007,
+					Name: DoltMCPPortName,
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -166,6 +200,44 @@ func TestDoltInternalServicePorts(t *testing.T) {
 				{
 					Port: 15051,
 					Name: DoltRemotesAPIPortName,
+				},
+			},
+		},
+		{
+			name: "with MCP server port",
+			doltdb: &doltv1alpha.DoltDB{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "doltdb-mcp",
+					Namespace: "default",
+				},
+				Spec: doltv1alpha.DoltDBSpec{
+					Server: doltv1alpha.Server{
+						Listener: doltv1alpha.Listener{
+							Port: 3306,
+						},
+						Cluster: doltv1alpha.Cluster{
+							RemotesAPI: doltv1alpha.RemotesAPI{
+								Port: 50051,
+							},
+						},
+						MCPServer: &doltv1alpha.MCPServer{
+							Port: 7007,
+						},
+					},
+				},
+			},
+			expectedPorts: []corev1.ServicePort{
+				{
+					Port: 3306,
+					Name: DoltMySQLPortName,
+				},
+				{
+					Port: 50051,
+					Name: DoltRemotesAPIPortName,
+				},
+				{
+					Port: 7007,
+					Name: DoltMCPPortName,
 				},
 			},
 		},

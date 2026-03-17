@@ -212,6 +212,12 @@ spec:
                         maxLength: 63
                         pattern: ^[a-z0-9][a-z0-9.-]+[a-z0-9]$
                         type: string
+                      dynamoDBTable:
+                        description: |-
+                          DynamoDBTable is the DynamoDB table name used by Dolt as a manifest store.
+                          Defaults to the bucket name if not specified (Dolt convention).
+                        maxLength: 255
+                        type: string
                       endpoint:
                         description: Endpoint is a custom endpoint for S3-compatible
                           services (e.g. MinIO).
