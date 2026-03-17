@@ -1905,6 +1905,43 @@ spec:
                     description: LogLevel defines the logging level for the DoltDB
                       server.
                     type: string
+                  mcpServer:
+                    description: |-
+                      MCPServer defines the MCP server configuration. When set, an MCP HTTP
+                      endpoint is started alongside the SQL server.
+                    properties:
+                      database:
+                        description: |-
+                          Database restricts the MCP server to a specific database.
+                          If empty, all databases are accessible.
+                        type: string
+                      passwordSecretKeyRef:
+                        description: |-
+                          PasswordSecretKeyRef references a Secret key containing the SQL password
+                          for the MCP user. If not set and user is not overridden, the root
+                          password is used.
+                        properties:
+                          key:
+                            type: string
+                          name:
+                            type: string
+                        required:
+                        - key
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      port:
+                        default: 7007
+                        description: Port defines the HTTP port for the MCP server.
+                        format: int32
+                        maximum: 49151
+                        minimum: 1024
+                        type: integer
+                      user:
+                        description: |-
+                          User defines the SQL user the MCP server uses to connect to Dolt.
+                          Defaults to the root user configured for the DoltDB instance.
+                        type: string
+                    type: object
                   metrics:
                     description: Metrics defines the metrics configuration for the
                       DoltDB server.

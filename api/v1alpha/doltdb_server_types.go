@@ -22,6 +22,10 @@ type Server struct {
 	// Cluster defines the cluster configuration for the DoltDB server.
 	// +optional
 	Cluster Cluster `json:"cluster,omitempty"`
+	// MCPServer defines the MCP server configuration. When set, an MCP HTTP
+	// endpoint is started alongside the SQL server.
+	// +optional
+	MCPServer *MCPServer `json:"mcpServer,omitempty"`
 }
 
 type Profiler struct {
@@ -92,6 +96,35 @@ type RemotesAPI struct {
 	// +kubebuilder:default:=50051
 	// +optional
 	Port int32 `json:"port,omitempty"`
+}
+
+// MCPServer defines the MCP server configuration for the DoltDB server.
+type MCPServer struct {
+	// Port defines the HTTP port for the MCP server.
+	// +kubebuilder:validation:Minimum=1024
+	// +kubebuilder:validation:Maximum=49151
+	// +kubebuilder:default:=7007
+	// +optional
+	Port int32 `json:"port,omitempty"`
+	// User defines the SQL user the MCP server uses to connect to Dolt.
+	// Defaults to the root user configured for the DoltDB instance.
+	// +optional
+	User string `json:"user,omitempty"`
+	// PasswordSecretKeyRef references a Secret key containing the SQL password
+	// for the MCP user. If not set and user is not overridden, the root
+	// password is used.
+	// +optional
+	PasswordSecretKeyRef *SecretKeySelector `json:"passwordSecretKeyRef,omitempty"`
+	// Database restricts the MCP server to a specific database.
+	// If empty, all databases are accessible.
+	// +optional
+	Database string `json:"database,omitempty"`
+}
+
+func (m *MCPServer) ApplyDefaults() {
+	if m.Port == 0 {
+		m.Port = 7007
+	}
 }
 
 func (s *Server) ApplyDefaults() {

@@ -12,17 +12,26 @@ import (
 
 // doltServicePorts returns the service ports for the Dolt cluster.
 func doltServicePorts(doltdb *doltv1alpha.DoltDB) []v1.ServicePort {
-	return []v1.ServicePort{
+	ports := []v1.ServicePort{
 		{
 			Port: doltdb.Spec.Server.Listener.Port,
 			Name: DoltMySQLPortName,
 		},
 	}
+
+	if doltdb.Spec.Server.MCPServer != nil {
+		ports = append(ports, v1.ServicePort{
+			Port: doltdb.Spec.Server.MCPServer.Port,
+			Name: DoltMCPPortName,
+		})
+	}
+
+	return ports
 }
 
 // doltInternalServicePorts returns the service ports for the internal headless service.
 func doltInternalServicePorts(doltdb *doltv1alpha.DoltDB) []v1.ServicePort {
-	return []v1.ServicePort{
+	ports := []v1.ServicePort{
 		{
 			Port: doltdb.Spec.Server.Listener.Port,
 			Name: DoltMySQLPortName,
@@ -32,6 +41,15 @@ func doltInternalServicePorts(doltdb *doltv1alpha.DoltDB) []v1.ServicePort {
 			Name: DoltRemotesAPIPortName,
 		},
 	}
+
+	if doltdb.Spec.Server.MCPServer != nil {
+		ports = append(ports, v1.ServicePort{
+			Port: doltdb.Spec.Server.MCPServer.Port,
+			Name: DoltMCPPortName,
+		})
+	}
+
+	return ports
 }
 
 // BuildDoltInternalService creates a headless service for the Dolt cluster.
