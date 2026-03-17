@@ -2,7 +2,9 @@
 
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](LICENSE.txt)
 
-A Kubernetes operator for running and managing [DoltDB](https://www.dolthub.com/blog/what-is-dolt/) clusters. Declaratively manage your DoltDB cluster using Kubernetes CRDs rather than imperative commands.
+[DoltDB](https://www.dolthub.com/blog/what-is-dolt/) brings Git-style versioning to your database — branches, diffs, merges, and a complete history of every change. Running it on Kubernetes, however, means managing StatefulSets, replication topology, failover, backups, and configuration by hand.
+
+This operator takes care of all of that. Define your DoltDB cluster as a Kubernetes Custom Resource, and the operator handles provisioning, replication, automatic failover, rolling upgrades, and backups — so you can focus on your data instead of your infrastructure.
 
 ## Features
 
