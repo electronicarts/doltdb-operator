@@ -1,0 +1,74 @@
+name: Integration Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      doltdb_engine_version:
+        description: "DoltDB engine version to test against"
+        required: false
+        default: "1.83.6"
+  issue_comment:
+    types: [created]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.issue.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  GO_VERSION_FILE: go.mod
+  DOLTDB_ENGINE_VERSION: ${{ github.event.inputs.doltdb_engine_version || '1.83.6' }}
+  KIND_CLUSTER_NAME: dolt
+  TILT_VERSION: "0.33.21"
+
+jobs:
+  integration-tests:
+    name: Integration Tests (kind + tilt)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.issue.pull_request && contains(github.event.comment.body, '/test-integration'))
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Checkout PR branch
+        if: github.event_name == 'issue_comment'
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: refs/pull/${{ github.event.issue.number }}/merge
+
+      - name: Checkout
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup Go
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: ${{ env.GO_VERSION_FILE }}
+
+      - name: Setup kind
+        uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
+        with:
+          cluster_name: ${{ env.KIND_CLUSTER_NAME }}
+          config: hack/manifests/kind/kind-ci.yaml
+
+      - name: Install tilt
+        run: |
+          curl -fsSL https://github.com/tilt-dev/tilt/releases/download/v${TILT_VERSION}/tilt.${TILT_VERSION}.linux.x86_64.tar.gz | tar -xzv tilt
+          sudo mv tilt /usr/local/bin/tilt
+
+      - name: Install kustomize
+        run: make kustomize
+
+      - name: Set cluster context
+        run: kubectl config use-context kind-${{ env.KIND_CLUSTER_NAME }}
+
+      - name: Run integration tests
+        run: tilt ci
+        env:
+          DOLTDB_ENGINE_VERSION: ${{ env.DOLTDB_ENGINE_VERSION }}
