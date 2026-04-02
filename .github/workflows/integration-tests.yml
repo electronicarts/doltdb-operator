@@ -1,6 +1,8 @@
 name: Integration Tests
 
 on:
+  pull_request: # TODO: remove after validating — keep only workflow_dispatch + issue_comment
+    branches: [main]
   workflow_dispatch:
     inputs:
       doltdb_engine_version:
