@@ -39,14 +39,14 @@ jobs:
       contents: read
       pull-requests: read
     steps:
-      - name: Checkout PR branch
+      - name: Checkout PR branch (comment trigger)
         if: github.event_name == 'issue_comment'
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: refs/pull/${{ github.event.issue.number }}/merge
 
       - name: Checkout
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name != 'issue_comment'
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Setup Go
