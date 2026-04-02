@@ -24,7 +24,6 @@ env:
   GO_VERSION_FILE: go.mod
   DOLTDB_ENGINE_VERSION: ${{ github.event.inputs.doltdb_engine_version || '1.83.6' }}
   KIND_CLUSTER_NAME: dolt
-  TILT_VERSION: "0.33.21"
 
 jobs:
   integration-tests:
@@ -54,15 +53,20 @@ jobs:
         with:
           go-version-file: ${{ env.GO_VERSION_FILE }}
 
-      - name: Setup kind
-        uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
-        with:
-          cluster_name: ${{ env.KIND_CLUSTER_NAME }}
-          config: hack/manifests/kind/kind-ci.yaml
+      - name: Install kind
+        run: |
+          KIND_VERSION="v0.30.0"
+          curl -Lo ./kind "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64"
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
+
+      - name: Create kind cluster
+        run: kind create cluster --name ${{ env.KIND_CLUSTER_NAME }} --config hack/manifests/kind/kind-ci.yaml
 
       - name: Install tilt
         run: |
-          curl -fsSL https://github.com/tilt-dev/tilt/releases/download/v${TILT_VERSION}/tilt.${TILT_VERSION}.linux.x86_64.tar.gz | tar -xzv tilt
+          TILT_VERSION="0.33.21"
+          curl -fsSL "https://github.com/tilt-dev/tilt/releases/download/v${TILT_VERSION}/tilt.${TILT_VERSION}.linux.x86_64.tar.gz" | tar -xzv tilt
           sudo mv tilt /usr/local/bin/tilt
 
       - name: Install kustomize
