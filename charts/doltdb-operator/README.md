@@ -13,8 +13,8 @@ A Helm chart for Kubernetes deployment of Dolt operator
 | existingClusterRole | string | `""` | Name of an existing ClusterRole to use when installClusterRole is false. If not set, defaults to the fullname. |
 | fullnameOverride | string | `""` |  |
 | image.pullPolicy | string | `"IfNotPresent"` |  |
-| image.repository | string | `"%%image_repository%%"` |  |
-| image.tag | string | `"%%image_tag%%"` |  |
+| image.repository | string | `"ghcr.io/electronicarts/doltdb-operator"` |  |
+| image.tag | string | `""` |  |
 | imagePullSecrets | list | `[]` |  |
 | installClusterRole | bool | `true` | A boolean flag indicating whether ClusterRole and ClusterRoleBinding should be installed. Set to false for secondary installations. Default: true. |
 | installCrds | bool | `false` | A boolean flag indicating whether CRDs should be installed. Set to false when using the standalone doltdb-operator-crds chart. Default: false. |
